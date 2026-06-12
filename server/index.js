@@ -9,6 +9,11 @@ import {
 import { verifyPassword, signToken, verifyToken } from './auth.js';
 import { applyVoiceCommand } from './voice.js';
 import { discoverDevices, checkReachable } from './discovery.js';
+import { ffmpegInfo, validateRtspUrl, applyConfig, stopEngine } from './cctv.js';
+import { validateStorage, listClips } from './cctv-storage.js';
+import { withinRoot, safeName } from './cctv-paths.js';
+import { encryptSecret, decryptSecret } from './crypto.js';
+import { cctvStatusPayload, sanitizeCamerasForClient } from './cctv-api.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.join(__dirname, '..');
@@ -179,6 +184,117 @@ async function handleApi(req, res, url) {
     return json(res, 200, result);
   }
 
+  // ---- CCTV → UGREEN NAS recording ----
+
+  // Engine status: ffmpeg availability, storage writability + free space, cameras.
+  if (route === 'GET /api/cctv/status') {
+    const ff = await ffmpegInfo();
+    const cfg = getState(hid)?.cctv || { storagePath: '', freeSpaceFloorGB: 20, cameras: [] };
+    const storage = cfg.storagePath ? await validateStorage(cfg.storagePath) : { ok: false, reason: 'not configured', freeBytes: 0 };
+    const payload = cctvStatusPayload(ff, storage, {
+      enabled: cfg.enabled,
+      cameras: sanitizeCamerasForClient(cfg.cameras, decryptSecret),
+    });
+    payload.storagePath = cfg.storagePath || '';
+    payload.freeSpaceFloorGB = cfg.freeSpaceFloorGB || 20;
+    return json(res, 200, payload);
+  }
+
+  // Probe an RTSP URL before enabling it.
+  if (route === 'POST /api/cctv/test') {
+    const b = await readBody(req);
+    return json(res, 200, await validateRtspUrl(String(b.rtspUrl || '')));
+  }
+
+  // Save storage settings + cameras. New plaintext rtsp:// URLs are encrypted at
+  // rest; omitted URLs keep the camera's existing ciphertext.
+  if (route === 'POST /api/cctv/config') {
+    const b = await readBody(req);
+    const state = getState(hid);
+    if (!state) return fail(res, 404, 'Household not found');
+    const prev = state.cctv || { cameras: [] };
+    const prevById = new Map((prev.cameras || []).map((c) => [c.id, c]));
+
+    const cameras = [];
+    for (const raw of Array.isArray(b.cameras) ? b.cameras : []) {
+      const id = String(raw.id || globalThis.crypto.randomUUID());
+      const existing = prevById.get(id);
+      let rtspUrl;
+      if (typeof raw.rtspUrl === 'string' && raw.rtspUrl.trim()) {
+        if (!/^rtsp:\/\//i.test(raw.rtspUrl.trim())) return fail(res, 400, `Camera "${raw.name || id}" stream URL must start with rtsp://`);
+        rtspUrl = encryptSecret(raw.rtspUrl.trim());
+      } else if (existing) {
+        rtspUrl = existing.rtspUrl; // keep stored ciphertext
+      } else {
+        return fail(res, 400, `Camera "${raw.name || id}" needs an rtsp:// stream URL`);
+      }
+      cameras.push({
+        id,
+        name: String(raw.name || 'Camera').slice(0, 60),
+        rtspUrl,
+        sensitivity: Math.min(0.5, Math.max(0.005, Number(raw.sensitivity) || 0.04)),
+        preRoll: Math.min(30, Math.max(0, Number(raw.preRoll) ?? 5)),
+        postRoll: Math.min(60, Math.max(0, Number(raw.postRoll) ?? 8)),
+        enabled: !!raw.enabled,
+      });
+    }
+
+    const cctv = {
+      enabled: b.enabled !== undefined ? !!b.enabled : (prev.enabled ?? true),
+      storagePath: String(b.storagePath ?? prev.storagePath ?? '').trim(),
+      freeSpaceFloorGB: Math.max(1, Number(b.freeSpaceFloorGB) || prev.freeSpaceFloorGB || 20),
+      cameras,
+    };
+    state.cctv = cctv;
+    putState(hid, state);
+    // Apply to the live engine (best-effort; never block the response).
+    applyConfig(cctv, { decrypt: decryptSecret }).catch(() => {});
+    return json(res, 200, { ok: true, cameras: sanitizeCamerasForClient(cameras, decryptSecret) });
+  }
+
+  // List recorded clips, optionally filtered by camera name and date.
+  if (route === 'GET /api/cctv/clips') {
+    const cfg = getState(hid)?.cctv;
+    const root = cfg?.storagePath || '';
+    if (!root) return json(res, 200, []);
+    const cam = url.searchParams.get('camera');
+    const date = url.searchParams.get('date');
+    const slug = cam ? safeName(cam) : null;
+    const clips = (await listClips(root))
+      .filter((c) => {
+        const p = c.path.replace(/\\/g, '/');
+        if (slug && !p.includes(`/${slug}/`)) return false;
+        if (date && !p.includes(`/${date}/`)) return false;
+        return true;
+      })
+      .sort((a, b2) => b2.mtime - a.mtime)
+      .map((c) => ({ path: c.path, when: c.when ? c.when.toISOString() : null, sizeMB: +(c.size / (1024 * 1024)).toFixed(1) }));
+    return json(res, 200, clips);
+  }
+
+  // Stream a single clip (Range-aware), path-guarded to the storage root.
+  if (route === 'GET /api/cctv/clip') {
+    const cfg = getState(hid)?.cctv;
+    const root = cfg?.storagePath || '';
+    const file = path.resolve(url.searchParams.get('path') || '');
+    if (!root || !withinRoot(root, file) || !fs.existsSync(file)) return fail(res, 404, 'Clip not found');
+    const stat = fs.statSync(file);
+    const range = req.headers.range;
+    if (range) {
+      const [s, e] = range.replace('bytes=', '').split('-');
+      const start = parseInt(s, 10) || 0;
+      const end = e ? parseInt(e, 10) : stat.size - 1;
+      res.writeHead(206, {
+        ...SECURITY_HEADERS,
+        'Content-Range': `bytes ${start}-${end}/${stat.size}`,
+        'Accept-Ranges': 'bytes', 'Content-Length': end - start + 1, 'Content-Type': 'video/mp4',
+      });
+      return fs.createReadStream(file, { start, end }).pipe(res);
+    }
+    res.writeHead(200, { ...SECURITY_HEADERS, 'Content-Length': stat.size, 'Content-Type': 'video/mp4', 'Accept-Ranges': 'bytes' });
+    return fs.createReadStream(file).pipe(res);
+  }
+
   // Granular read-only REST over the normalized tables.
   const m = url.pathname.match(/^\/api\/(members|events|transactions|chores|shopping)$/);
   if (req.method === 'GET' && m) return json(res, 200, collection(m[1], hid));
@@ -224,9 +340,17 @@ const server = http.createServer(async (req, res) => {
 
 server.listen(PORT, () => {
   console.log(`HomePal running → http://localhost:${PORT}`);
+  // Resume CCTV recording for any household with a saved, enabled config.
+  try {
+    const rows = db.prepare('SELECT id FROM households').all();
+    for (const { id } of rows) {
+      const cctv = getState(id)?.cctv;
+      if (cctv?.enabled && cctv.storagePath) applyConfig(cctv, { decrypt: decryptSecret }).catch(() => {});
+    }
+  } catch {}
 });
 
 // graceful shutdown
 for (const sig of ['SIGINT', 'SIGTERM']) {
-  process.on(sig, () => { try { db.close(); } catch {} process.exit(0); });
+  process.on(sig, () => { try { stopEngine(); } catch {} try { db.close(); } catch {} process.exit(0); });
 }

@@ -186,6 +186,7 @@ export function putState(hid, state) {
       weather: state.weather, chorePoints: state.chorePoints, nid: state.nid,
       recurring: state.recurring, debts: state.debts, assistants: state.assistants,
       automations: state.automations, autoSeeded: state.autoSeeded,
+      cctv: state.cctv,
       alerts: state.alerts || []
     };
     db.prepare('UPDATE households SET config = ? WHERE id = ?').run(JSON.stringify(config), hid);

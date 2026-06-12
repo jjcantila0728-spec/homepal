@@ -137,12 +137,14 @@ export async function concatSegments(files, outPath) {
 export function startSegmenter(url, stagingDir) {
   fs.mkdirSync(stagingDir, { recursive: true });
   const pattern = path.join(stagingDir, 'seg_%05d.ts');
-  return spawn(FFMPEG, [
+  const p = spawn(FFMPEG, [
     '-rtsp_transport', 'tcp', '-i', url,
     '-an', '-c', 'copy', '-f', 'segment',
     '-segment_time', '2', '-reset_timestamps', '1',
     pattern,
   ], { stdio: ['ignore', 'ignore', 'ignore'] });
+  p.on('error', () => {}); // missing binary / spawn failure shouldn't crash the server
+  return p;
 }
 
 // Spawn the detector: downscaled scene-change; emits motion times via onMotion.
@@ -152,6 +154,7 @@ export function startDetector(url, sensitivity, onMotion) {
     '-an', '-vf', `scale=320:-1,select='gt(scene,${Number(sensitivity) || 0.04})',metadata=print`,
     '-f', 'null', '-',
   ], { stdio: ['ignore', 'ignore', 'pipe'] });
+  p.on('error', () => {}); // missing binary / spawn failure shouldn't crash the server
   let buf = '';
   p.stderr.on('data', (d) => {
     buf += d;
