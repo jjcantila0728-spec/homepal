@@ -10,6 +10,7 @@ import {
 } from './components.js';
 import { startCameras, stopCameras, renderNotifPanel } from './actions.js';
 import { rAutomations } from './automations.js';
+import { rCctv, initCctv } from './cctv.js';
 import { persist } from './api.js';
 
 var VIEWS = [
@@ -17,10 +18,11 @@ var VIEWS = [
   { id: 'schedule', icon: 'fa-calendar', label: 'Schedule' },
   { id: 'finance', icon: 'fa-wallet', label: 'Finance' },
   { id: 'home', icon: 'fa-house-signal', label: 'Smart Home' },
+  { id: 'cctv', icon: 'fa-video', label: 'CCTV' },
   { id: 'tasks', icon: 'fa-list-check', label: 'Tasks' }
 ];
 // Smart Home now hosts Automations; Family lives in the avatar account menu.
-var TITLES = { dashboard: 'Dashboard', schedule: 'Schedule', finance: 'Finance', home: 'Smart Home', automations: 'Smart Home', tasks: 'Tasks', family: 'Family' };
+var TITLES = { dashboard: 'Dashboard', schedule: 'Schedule', finance: 'Finance', home: 'Smart Home', automations: 'Smart Home', cctv: 'Cameras & Storage', tasks: 'Tasks', family: 'Family' };
 
 export function navigate(view) { S.view = view; S.notifOpen = false; stopCameras(); renderNav(); render(); if (window.innerWidth < 768) document.getElementById('sidebar').classList.remove('open'); }
 export function toggleSidebar() { document.getElementById('sidebar').classList.toggle('open'); }
@@ -68,6 +70,7 @@ export function render() {
       case 'finance': html = rFin(); setTimeout(initFinCharts, 60); break;
       case 'automations': S.view = 'home'; /* automations merged into Smart Home */
       case 'home': html = rHome(); setTimeout(function () { initHomeCharts(); startCameras(); }, 80); break;
+      case 'cctv': html = rCctv(); setTimeout(initCctv, 40); break;
       case 'tasks': html = rTasks(); break;
       case 'family': html = rFam(); break;
       default: html = rDash();

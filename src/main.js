@@ -5,6 +5,7 @@ import * as Views from './views.js';
 import * as Actions from './actions.js';
 import * as Voice from './voice.js';
 import * as Autos from './automations.js';
+import * as Cctv from './cctv.js';
 import { S, hideModal, enhanceA11y, showToast } from './core.js';
 import { ART } from './constants.js';
 import {
@@ -13,7 +14,7 @@ import {
 } from './api.js';
 
 // Expose everything the inline handlers in generated HTML call.
-Object.assign(window, Views, Actions, Voice, Autos);
+Object.assign(window, Views, Actions, Voice, Autos, Cctv);
 Object.assign(window, { S, hideModal, ART, logout, authTab, authError, submitLogin, submitRegister });
 
 // A render error should never blank the app silently.
