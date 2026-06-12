@@ -1,0 +1,14 @@
+{
+  "name": "homepal",
+  "version": "1.0.0",
+  "description": "HomePal — Family Hub: full-stack family dashboard (calendar, finance, smart-home, chores).",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node --watch server/index.js"
+  },
+  "engines": {
+    "node": ">=24"
+  }
+}
