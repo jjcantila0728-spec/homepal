@@ -1,5 +1,5 @@
-import { ComingSoon } from '@/components/views/ComingSoon';
+import { Schedule } from '@/components/views/Schedule';
 
 export default function SchedulePage() {
-  return <ComingSoon title="Schedule" />;
+  return <Schedule />;
 }

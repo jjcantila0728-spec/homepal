@@ -1,5 +1,5 @@
-import { ComingSoon } from '@/components/views/ComingSoon';
+import { Home } from '@/components/views/Home';
 
 export default function HomePage() {
-  return <ComingSoon title="Smart Home" />;
+  return <Home />;
 }

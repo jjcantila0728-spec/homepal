@@ -1,5 +1,5 @@
-import { ComingSoon } from '@/components/views/ComingSoon';
+import { Family } from '@/components/views/Family';
 
 export default function FamilyPage() {
-  return <ComingSoon title="Family" />;
+  return <Family />;
 }
