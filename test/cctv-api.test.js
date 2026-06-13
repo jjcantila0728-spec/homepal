@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { cctvStatusPayload, sanitizeCamerasForClient } from '../server/cctv-api.js';
+import { cctvStatusPayload, sanitizeCamerasForClient } from '../lib/cctv/index.ts';
 
 test('sanitizeCamerasForClient masks rtsp + drops ciphertext', () => {
   const cams = [{ id: 'c1', name: 'Front', rtspUrl: 'ENC', _plain: 'rtsp://u:p@10.0.0.5/s', sensitivity: 0.04, enabled: true }];

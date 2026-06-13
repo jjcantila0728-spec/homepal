@@ -3,7 +3,7 @@
 import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
-import { withinRoot, parseClipTime } from './paths';
+import { withinRoot, parseClipTime } from './paths.ts';
 
 export interface StorageInfo {
   ok: boolean;

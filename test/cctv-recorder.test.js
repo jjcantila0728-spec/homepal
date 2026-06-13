@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { concatSegments, ffmpegInfo } from '../server/cctv.js';
+import { concatSegments, ffmpegInfo } from '../lib/cctv/index.ts';
 
 // concatSegments uses ffmpeg concat demuxer; skip if ffmpeg missing.
 test('concatSegments writes an output file from .ts inputs', async (t) => {

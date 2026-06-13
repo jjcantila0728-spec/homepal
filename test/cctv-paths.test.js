@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import path from 'node:path';
-import { clipRelPath, parseClipTime, withinRoot } from '../server/cctv-paths.js';
+import { clipRelPath, parseClipTime, withinRoot } from '../lib/cctv/paths.ts';
 
 test('clipRelPath builds <camera>/<date>/clip_<HHMMSS>.mp4', () => {
   const d = new Date('2026-06-12T09:05:03');

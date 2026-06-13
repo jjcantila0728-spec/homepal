@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { CameraController } from '../server/cctv.js';
+import { CameraController } from '../lib/cctv/index.ts';
 
 test('controller stitches segments on motion and reports a clip', async () => {
   const written = [];

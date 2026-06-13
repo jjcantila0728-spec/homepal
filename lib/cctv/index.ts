@@ -8,11 +8,11 @@ import { spawn, type ChildProcess } from 'node:child_process';
 import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
-import { parseSceneTimes, selectSegments, type Segment } from './detect';
-import { clipRelPath } from './paths';
-import { validateStorage, listClips, planRetention, safeDelete } from './storage';
-import { stagingRoot } from './cloud';
-import { maskRtsp, decryptSecret } from '../crypto';
+import { parseSceneTimes, selectSegments, type Segment } from './detect.ts';
+import { clipRelPath } from './paths.ts';
+import { validateStorage, listClips, planRetention, safeDelete } from './storage.ts';
+import { stagingRoot } from './cloud.ts';
+import { maskRtsp, decryptSecret } from '../crypto.ts';
 
 const FFMPEG = process.env.FFMPEG_PATH || 'ffmpeg';
 const FFPROBE = process.env.FFPROBE_PATH || 'ffprobe';
@@ -425,9 +425,17 @@ export function sanitizeCamerasForClient(
     } catch {
       masked = '';
     }
-    const { rtspUrl: _rtspUrl, ...rest } = c as Camera & { _plain?: string };
-    void _rtspUrl;
-    return { ...rest, rtspMasked: masked } as SanitizedCamera;
+    // Allowlist safe fields only — never spread the source camera, so neither
+    // the ciphertext (rtspUrl) nor any cached plaintext can ever reach a client.
+    return {
+      id: c.id,
+      name: c.name,
+      sensitivity: c.sensitivity,
+      preRoll: c.preRoll,
+      postRoll: c.postRoll,
+      enabled: c.enabled,
+      rtspMasked: masked,
+    };
   });
 }
 

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parseSceneTimes, selectSegments } from '../server/cctv-detect.js';
+import { parseSceneTimes, selectSegments } from '../lib/cctv/detect.ts';
 
 test('parseSceneTimes extracts pts_time from metadata.print lines', () => {
   const stderr = [

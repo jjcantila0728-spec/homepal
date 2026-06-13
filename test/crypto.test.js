@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { encryptSecret, decryptSecret, maskRtsp } from '../server/crypto.js';
+import { encryptSecret, decryptSecret, maskRtsp } from '../lib/crypto.ts';
 
 test('encrypt/decrypt round-trips', () => {
   const url = 'rtsp://admin:p%40ss@192.168.1.50:554/stream1';

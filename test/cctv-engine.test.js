@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { runRetention } from '../server/cctv.js';
+import { runRetention } from '../lib/cctv/index.ts';
 
 test('runRetention deletes oldest clips below floor, keeps newest', async () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'nas-'));

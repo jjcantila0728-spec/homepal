@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { ffmpegInfo, validateRtspUrl } from '../server/cctv.js';
+import { ffmpegInfo, validateRtspUrl } from '../lib/cctv/index.ts';
 
 test('ffmpegInfo reports availability shape', async () => {
   const info = await ffmpegInfo();
