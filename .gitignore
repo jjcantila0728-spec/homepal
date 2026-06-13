@@ -7,3 +7,7 @@ data/
 # CCTV runtime artifacts
 data/.cctv-key
 data/cctv-staging/
+
+# Next.js
+.next/
+next-env.d.ts

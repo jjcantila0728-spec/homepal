@@ -1,6 +1,0 @@
-"use strict";exports.id=21,exports.ids=[21],exports.modules={5021:(e,t,r)=>{r.d(t,{runMigrations:()=>u});var i=r(3024),a=r(4379),o=r.n(a),n=r(2449);let s=globalThis,l=!1;async function u(){if(l)return;let e=(s._hpPool||(s._hpPool=function(){let e=process.env.DATABASE_URL;if(!e)throw Error("DATABASE_URL is not set");let t=/sslmode=require/.test(e)||"1"===process.env.PGSSL||!0;return new n.Pool({connectionString:e,ssl:t?{rejectUnauthorized:!1}:void 0,max:10})}()),s._hpPool);await e.query(`
-    CREATE TABLE IF NOT EXISTS _migrations (
-      name text PRIMARY KEY,
-      applied_at timestamptz NOT NULL DEFAULT now()
-    );
-  `);let t=o().join(process.cwd(),"db","migrations"),r=(0,i.readdirSync)(t).filter(e=>e.endsWith(".sql")).sort(),a=new Set((await e.query("SELECT name FROM _migrations")).rows.map(e=>e.name));for(let n of r){if(a.has(n))continue;let r=(0,i.readFileSync)(o().join(t,n),"utf8"),s=await e.connect();try{await s.query("BEGIN"),await s.query(r),await s.query("INSERT INTO _migrations (name) VALUES ($1)",[n]),await s.query("COMMIT"),console.log(`[migrate] applied ${n}`)}catch(e){throw await s.query("ROLLBACK"),e}finally{s.release()}}l=!0}}};
