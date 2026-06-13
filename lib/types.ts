@@ -212,10 +212,10 @@ export interface Automation {
 }
 
 export interface CctvConfig {
+  enabled?: boolean;
   storagePath?: string;
-  keepFreeGb?: number;
+  freeSpaceFloorGB?: number;
   cameras?: unknown[];
-  [key: string]: unknown;
 }
 
 export interface HouseholdState {

@@ -1,5 +1,5 @@
-import { ComingSoon } from '@/components/views/ComingSoon';
+import { Cctv } from '@/components/views/Cctv';
 
 export default function CctvPage() {
-  return <ComingSoon title="Cameras & Storage" />;
+  return <Cctv />;
 }

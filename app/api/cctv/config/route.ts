@@ -1,0 +1,111 @@
+// POST /api/cctv/config — save storage settings + cameras. New plaintext
+// rtsp:// URLs are encrypted at rest; omitted URLs keep the camera's existing
+// ciphertext. Saving works in cloud mode too (so users can pre-configure);
+// only the live recording engine (applyConfig) is gated on self-hosting.
+import { NextResponse } from 'next/server';
+import { getSessionUser } from '@/lib/session';
+import { loadState, saveState } from '@/lib/state';
+import { encryptSecret, decryptSecret } from '@/lib/crypto';
+import { isCloud } from '@/lib/cctv/cloud';
+import { applyConfig, sanitizeCamerasForClient, type Camera, type EngineConfig } from '@/lib/cctv';
+import type { HouseholdState } from '@/lib/seed';
+import { randomUUID } from 'node:crypto';
+
+export const runtime = 'nodejs';
+
+interface RawCamera {
+  id?: string;
+  name?: string;
+  rtspUrl?: string;
+  sensitivity?: number;
+  preRoll?: number;
+  postRoll?: number;
+  enabled?: boolean;
+}
+
+interface ConfigBody {
+  enabled?: boolean;
+  storagePath?: string;
+  freeSpaceFloorGB?: number;
+  cameras?: RawCamera[];
+}
+
+interface StoredCctv {
+  enabled?: boolean;
+  storagePath?: string;
+  freeSpaceFloorGB?: number;
+  cameras?: Camera[];
+}
+
+export async function POST(req: Request) {
+  const user = await getSessionUser();
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  const state = await loadState(user.id);
+  if (!state) return NextResponse.json({ error: 'Household not found' }, { status: 404 });
+
+  let body: ConfigBody;
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
+  }
+
+  const prev: StoredCctv = (state.cctv as StoredCctv | undefined) || { cameras: [] };
+  const prevById = new Map<string, Camera>((prev.cameras || []).map((c) => [c.id, c]));
+
+  const cameras: Camera[] = [];
+  for (const raw of Array.isArray(body.cameras) ? body.cameras : []) {
+    const id = String(raw.id || randomUUID());
+    const existing = prevById.get(id);
+    let rtspUrl: string;
+    if (typeof raw.rtspUrl === 'string' && raw.rtspUrl.trim()) {
+      if (!/^rtsp:\/\//i.test(raw.rtspUrl.trim())) {
+        return NextResponse.json(
+          { error: `Camera "${raw.name || id}" stream URL must start with rtsp://` },
+          { status: 400 },
+        );
+      }
+      rtspUrl = encryptSecret(raw.rtspUrl.trim());
+    } else if (existing) {
+      rtspUrl = existing.rtspUrl; // keep stored ciphertext
+    } else {
+      return NextResponse.json(
+        { error: `Camera "${raw.name || id}" needs an rtsp:// stream URL` },
+        { status: 400 },
+      );
+    }
+    cameras.push({
+      id,
+      name: String(raw.name || 'Camera').slice(0, 60),
+      rtspUrl,
+      sensitivity: Math.min(0.5, Math.max(0.005, Number(raw.sensitivity) || 0.04)),
+      preRoll: Math.min(30, Math.max(0, Number(raw.preRoll) ?? 5)),
+      postRoll: Math.min(60, Math.max(0, Number(raw.postRoll) ?? 8)),
+      enabled: !!raw.enabled,
+    });
+  }
+
+  const cctv: EngineConfig = {
+    enabled: body.enabled !== undefined ? !!body.enabled : (prev.enabled ?? true),
+    storagePath: String(body.storagePath ?? prev.storagePath ?? '').trim(),
+    freeSpaceFloorGB: Math.max(1, Number(body.freeSpaceFloorGB) || prev.freeSpaceFloorGB || 20),
+    cameras,
+  };
+
+  const next = { ...state, cctv } as HouseholdState;
+  const ok = await saveState(user.id, next);
+  if (!ok) return NextResponse.json({ error: 'Household not found' }, { status: 404 });
+
+  // Apply to the live engine only when self-hosting (best-effort; never blocks
+  // the response). In cloud mode the config is persisted but recording is off.
+  if (!isCloud()) {
+    applyConfig(cctv, { decrypt: decryptSecret }).catch(() => {});
+  }
+
+  return NextResponse.json({
+    ok: true,
+    cloud: isCloud(),
+    cameras: sanitizeCamerasForClient(cameras, decryptSecret),
+  });
+}

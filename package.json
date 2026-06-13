@@ -9,7 +9,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "test": "node --test"
+    "test": "node --test \"test/**/*.test.js\""
   },
   "engines": {
     "node": ">=24"
