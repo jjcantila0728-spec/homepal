@@ -2,34 +2,9 @@
 // admin, empty starter rooms, functional scenes + automations. Ported from the
 // legacy server/seed.js, but returns the assembled whole-state object directly.
 
-export interface HouseholdState {
-  householdName: string;
-  members: unknown[];
-  events: unknown[];
-  transactions: unknown[];
-  chores: unknown[];
-  shopping: unknown[];
-  alerts: unknown[];
-  budgets: unknown[];
-  savings: unknown[];
-  securityArmed: boolean;
-  thermostat: Record<string, unknown>;
-  rooms: unknown[];
-  scenes: unknown[];
-  lights: unknown[];
-  devices: unknown[];
-  energy: Record<string, unknown>;
-  weather: Record<string, unknown>;
-  chorePoints: Record<string, number>;
-  recurring: unknown[];
-  debts: unknown[];
-  automations: unknown[];
-  autoSeeded: boolean;
-  assistants: Record<string, unknown>;
-  cctv?: Record<string, unknown>;
-  nid: number;
-  [key: string]: unknown;
-}
+import type { HouseholdState } from './types';
+
+export type { HouseholdState };
 
 const initials = (name: string): string =>
   name.trim().split(/\s+/).map((w) => w[0]).join('').toUpperCase().slice(0, 2) || 'ME';
