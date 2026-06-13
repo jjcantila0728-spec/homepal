@@ -6,13 +6,20 @@
 import { NextResponse } from 'next/server';
 import { getSessionUser } from '@/lib/session';
 import { isCloud, LOCAL_AGENT_REQUIRED } from '@/lib/cctv/cloud';
+import { can } from '@/lib/entitlements';
 import { discoverDevices, checkReachable, isPrivateHost } from '@/lib/discovery';
 
 export const runtime = 'nodejs';
 
+const UPGRADE_REASON = 'Device discovery is a Pro feature — upgrade to scan your network.';
+
 export async function GET() {
   const user = await getSessionUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  if (!can(user.plan, 'discovery')) {
+    return NextResponse.json({ ok: false, upgrade: true, reason: UPGRADE_REASON, devices: [] });
+  }
 
   if (isCloud()) {
     return NextResponse.json({ ok: false, reason: LOCAL_AGENT_REQUIRED, devices: [] });
@@ -25,6 +32,10 @@ export async function GET() {
 export async function POST(req: Request) {
   const user = await getSessionUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  if (!can(user.plan, 'discovery')) {
+    return NextResponse.json({ ok: false, upgrade: true, reason: UPGRADE_REASON, devices: [] });
+  }
 
   let body: { check?: string };
   try {

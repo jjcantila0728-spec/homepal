@@ -17,6 +17,7 @@ const TITLES: Record<string, string> = {
   '/app/cctv': 'Cameras & Storage',
   '/app/tasks': 'Tasks',
   '/app/family': 'Family',
+  '/app/billing': 'Billing & Plan',
 };
 
 interface SearchResult {
@@ -69,7 +70,7 @@ function Clock() {
 }
 
 export function AppShell({ children }: { children: React.ReactNode }) {
-  const { state, ui, setUI, logout } = useHousehold();
+  const { state, ui, setUI, logout, plan } = useHousehold();
   const pathname = usePathname();
   const router = useRouter();
   const u = currentUser(state, ui.userId);
@@ -291,6 +292,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 <Link href="/app/family" className="um-item" role="menuitem" onClick={() => setUserMenuOpen(false)}>
                   <i className="fa-solid fa-users um-ic" />
                   <span>Family</span>
+                </Link>
+                <Link href="/app/billing" className="um-item" role="menuitem" onClick={() => setUserMenuOpen(false)}>
+                  <i className={`fa-solid ${plan === 'pro' ? 'fa-crown' : 'fa-credit-card'} um-ic`} />
+                  <span>{plan === 'pro' ? 'Billing (Pro)' : 'Upgrade to Pro'}</span>
                 </Link>
                 <button className="um-item um-danger" role="menuitem" onClick={() => logout()}>
                   <i className="fa-solid fa-right-from-bracket um-ic" />

@@ -7,6 +7,7 @@ import { getSessionUser } from '@/lib/session';
 import { loadState, saveState } from '@/lib/state';
 import { encryptSecret, decryptSecret } from '@/lib/crypto';
 import { isCloud } from '@/lib/cctv/cloud';
+import { can } from '@/lib/entitlements';
 import { applyConfig, sanitizeCamerasForClient, type Camera, type EngineConfig } from '@/lib/cctv';
 import type { HouseholdState } from '@/lib/seed';
 import { randomUUID } from 'node:crypto';
@@ -40,6 +41,8 @@ interface StoredCctv {
 export async function POST(req: Request) {
   const user = await getSessionUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  if (!can(user.plan, 'cctv'))
+    return NextResponse.json({ error: 'Upgrade to Pro to use CCTV', upgrade: true }, { status: 403 });
 
   const state = await loadState(user.id);
   if (!state) return NextResponse.json({ error: 'Household not found' }, { status: 404 });

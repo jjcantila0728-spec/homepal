@@ -10,6 +10,7 @@
 // be saved (the config POST persists even in cloud).
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useHousehold } from '@/store/household';
+import { UpgradePrompt } from '@/components/ui/UpgradePrompt';
 
 interface SanitizedCamera {
   id: string;
@@ -25,6 +26,7 @@ interface SanitizedCamera {
 interface CctvStatus {
   ok?: boolean;
   cloud?: boolean;
+  upgrade?: boolean;
   reason?: string;
   ffmpeg?: boolean;
   ffprobe?: boolean;
@@ -224,6 +226,11 @@ export function Cctv() {
         <div className="card p-6 text-center text-[var(--muted)] text-sm">Loading cameras…</div>
       </div>
     );
+  }
+
+  // Free plan: gate the whole view behind an upgrade prompt.
+  if (status.upgrade) {
+    return <UpgradePrompt feature="cctv" />;
   }
 
   const st = status.storage || {};

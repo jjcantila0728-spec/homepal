@@ -6,6 +6,7 @@ import { getSessionUser } from '@/lib/session';
 import { loadState } from '@/lib/state';
 import { decryptSecret } from '@/lib/crypto';
 import { isCloud, LOCAL_AGENT_REQUIRED } from '@/lib/cctv/cloud';
+import { can } from '@/lib/entitlements';
 import {
   ffmpegInfo,
   cctvStatusPayload,
@@ -26,6 +27,11 @@ interface CctvCfg {
 export async function GET() {
   const user = await getSessionUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  // CCTV is a Pro feature — free plans get an upgrade prompt instead of config.
+  if (!can(user.plan, 'cctv')) {
+    return NextResponse.json({ ok: false, upgrade: true, reason: 'upgrade-required' });
+  }
 
   const state = await loadState(user.id);
   const cfg: CctvCfg =

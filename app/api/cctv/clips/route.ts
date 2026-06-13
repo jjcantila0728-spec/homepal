@@ -5,6 +5,7 @@ import { NextResponse } from 'next/server';
 import { getSessionUser } from '@/lib/session';
 import { loadState } from '@/lib/state';
 import { isCloud, LOCAL_AGENT_REQUIRED } from '@/lib/cctv/cloud';
+import { can } from '@/lib/entitlements';
 import { listClips } from '@/lib/cctv/storage';
 import { safeName } from '@/lib/cctv/paths';
 
@@ -17,6 +18,8 @@ interface StoredCctv {
 export async function GET(req: Request) {
   const user = await getSessionUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  if (!can(user.plan, 'cctv'))
+    return NextResponse.json({ error: 'Upgrade to Pro to use CCTV', upgrade: true }, { status: 403 });
 
   if (isCloud()) {
     return NextResponse.json({ ok: false, clips: [], reason: LOCAL_AGENT_REQUIRED });

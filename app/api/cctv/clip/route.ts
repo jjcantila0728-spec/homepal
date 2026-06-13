@@ -4,6 +4,7 @@
 import { getSessionUser } from '@/lib/session';
 import { loadState } from '@/lib/state';
 import { isCloud, LOCAL_AGENT_REQUIRED } from '@/lib/cctv/cloud';
+import { can } from '@/lib/entitlements';
 import { withinRoot } from '@/lib/cctv/paths';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -31,6 +32,8 @@ export async function GET(req: Request) {
       headers: { 'Content-Type': 'application/json' },
     });
   }
+
+  if (!can(user.plan, 'cctv')) return notFound('upgrade-required');
 
   if (isCloud()) return notFound(LOCAL_AGENT_REQUIRED);
 
