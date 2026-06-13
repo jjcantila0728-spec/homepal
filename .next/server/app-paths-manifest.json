@@ -1,0 +1,18 @@
+{
+  "/_not-found/page": "app/_not-found/page.js",
+  "/api/auth/logout/route": "app/api/auth/logout/route.js",
+  "/api/auth/login/route": "app/api/auth/login/route.js",
+  "/api/auth/me/route": "app/api/auth/me/route.js",
+  "/api/state/route": "app/api/state/route.js",
+  "/api/auth/register/route": "app/api/auth/register/route.js",
+  "/(auth)/login/page": "app/(auth)/login/page.js",
+  "/(auth)/register/page": "app/(auth)/register/page.js",
+  "/page": "app/page.js",
+  "/app/cctv/page": "app/app/cctv/page.js",
+  "/app/family/page": "app/app/family/page.js",
+  "/app/finance/page": "app/app/finance/page.js",
+  "/app/home/page": "app/app/home/page.js",
+  "/app/schedule/page": "app/app/schedule/page.js",
+  "/app/page": "app/app/page.js",
+  "/app/tasks/page": "app/app/tasks/page.js"
+}

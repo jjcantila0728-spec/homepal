@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { SESSION_COOKIE } from '@/lib/auth';
+import { SESSION_COOKIE } from '@/lib/session-cookie';
 
 // Lightweight gate: middleware only checks for the presence of the session cookie
 // (cryptographic verification needs node:crypto and happens in route handlers /

@@ -2,14 +2,17 @@ import crypto from 'node:crypto';
 
 // scrypt password hashing + HS256 JWT — ported from the legacy zero-dep server.
 
-function loadSecret(): string {
-  if (process.env.JWT_SECRET) return process.env.JWT_SECRET;
+// Resolved lazily (not at import time) so a production build without env set
+// doesn't throw while merely loading route modules — it only errors on real use.
+let _secret: string | null = null;
+function secret(): string {
+  if (_secret) return _secret;
+  if (process.env.JWT_SECRET) return (_secret = process.env.JWT_SECRET);
   if (process.env.NODE_ENV === 'production') {
     throw new Error('JWT_SECRET must be set in production');
   }
-  return 'dev-insecure-secret-change-me';
+  return (_secret = 'dev-insecure-secret-change-me');
 }
-const SECRET = loadSecret();
 const TOKEN_TTL = 60 * 60 * 24 * 30; // 30 days
 
 // ---- password hashing (scrypt) ----
@@ -34,7 +37,7 @@ const b64url = (buf: Buffer | string): string =>
 const b64urlJson = (obj: unknown): string => b64url(JSON.stringify(obj));
 
 function sign(data: string): string {
-  return b64url(crypto.createHmac('sha256', SECRET).update(data).digest());
+  return b64url(crypto.createHmac('sha256', secret()).update(data).digest());
 }
 
 export interface TokenPayload {
@@ -70,4 +73,4 @@ export function verifyToken(token: string | null | undefined): TokenPayload | nu
   return payload;
 }
 
-export const SESSION_COOKIE = 'hp_session';
+export { SESSION_COOKIE } from './session-cookie';
