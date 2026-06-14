@@ -8,14 +8,24 @@ function makePool(): Pool {
   if (!connectionString) {
     throw new Error('DATABASE_URL is not set');
   }
-  // Managed Postgres (Cantila/most hosts) terminates TLS; accept it unless explicitly disabled.
-  const wantSsl =
-    /sslmode=require/.test(connectionString) || process.env.PGSSL === '1' || process.env.NODE_ENV === 'production';
-  return new Pool({
+  // Only negotiate TLS when the connection explicitly asks for it. Managed
+  // Postgres on the same private network (e.g. Cantila) often does NOT support
+  // SSL — forcing it throws "The server does not support SSL connections" and
+  // breaks every query. Opt in via `?sslmode=require` or PGSSL=1.
+  const wantSsl = /sslmode=require/.test(connectionString) || process.env.PGSSL === '1';
+  const pool = new Pool({
     connectionString,
     ssl: wantSsl ? { rejectUnauthorized: false } : undefined,
     max: 10,
   });
+  // A pg Pool with no 'error' listener crashes the whole Node process when an
+  // idle client errors (unhandled EventEmitter 'error'), taking every route —
+  // even static pages — down. Swallow & log instead.
+  pool.on('error', (err) => {
+    // eslint-disable-next-line no-console
+    console.error('[db] idle client error:', err.message);
+  });
+  return pool;
 }
 
 export function getPool(): Pool {
