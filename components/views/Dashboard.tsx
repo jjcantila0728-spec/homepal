@@ -34,7 +34,7 @@ function useCounters(deps: unknown[]) {
 }
 
 export function Dashboard() {
-  const { state, ui, setUI, activateScene } = useHousehold();
+  const { state, ui, setUI, activateScene, update } = useHousehold();
   const { openAddEvent, payRecurring } = useActions();
   const u = currentUser(state, ui.userId);
 
@@ -47,6 +47,44 @@ export function Dashboard() {
   const lightsOn = state.lights.filter((l) => l.on).length;
   const pendingChores = state.chores.filter((c) => !c.done).length;
   const w = state.weather;
+  const country = state.location?.country;
+
+  // Realtime weather: geolocate the browser, fetch live conditions, and refresh
+  // every 10 minutes. Falls back to the family location's country when the user
+  // denies geolocation. Failures leave the existing weather untouched.
+  useEffect(() => {
+    let cancelled = false;
+
+    const apply = (qs: string) => {
+      fetch(`/api/weather?${qs}`)
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data) => {
+          if (data && !cancelled && data.temp != null) update((d) => { d.weather = data; });
+        })
+        .catch(() => {});
+    };
+
+    const load = () => {
+      const fallback = () => apply(country ? `country=${encodeURIComponent(country)}` : '');
+      if (typeof navigator !== 'undefined' && navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (pos) => apply(`lat=${pos.coords.latitude}&lon=${pos.coords.longitude}`),
+          () => fallback(),
+          { timeout: 8000, maximumAge: 600_000 },
+        );
+      } else {
+        fallback();
+      }
+    };
+
+    load();
+    const id = setInterval(load, 600_000);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [country]);
 
   const upEvts = state.events
     .filter((e) => e.date >= ds())
@@ -83,7 +121,11 @@ export function Dashboard() {
                 <div className="flex-1">
                   <div className="flex items-baseline gap-2">
                     <span className="text-2xl font-bold">{w.temp}°</span>
-                    <span className="text-xs text-[var(--muted)]">{w.city}</span>
+                    {w.city && <span className="text-xs text-[var(--muted)]">{w.city}</span>}
+                    <span className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-[var(--accent)]">
+                      <span className="pulse-dot" style={{ width: 6, height: 6 }} />
+                      Live
+                    </span>
                   </div>
                   <div className="text-xs text-[var(--muted)]">
                     {w.cond} &middot; H:{w.hi}° L:{w.lo}°
