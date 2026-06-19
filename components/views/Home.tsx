@@ -15,6 +15,7 @@ import { useHousehold } from '@/store/household';
 import { useActions } from '@/hooks/useActions';
 import { TRIGGER_TEXT, actionText } from '@/lib/automations';
 import { StatCard, LightCard, LockRow, DeviceCard, SensorRow, CamCard, EmptyState } from '@/components/ui/Cards';
+import { CamerasPanel } from '@/components/views/cameras/CamerasPanel';
 import { apiConnectDeako, apiDeakoDevices, apiDeakoStatus } from '@/lib/integrations/deako/deakoClientApi';
 import type { DeakoDevice, DeakoStatus } from '@/lib/integrations/deako/types';
 import type { Light } from '@/lib/types';
@@ -597,6 +598,20 @@ export function Home() {
             </div>
           </div>
         ))}
+      </div>
+
+      {/* ===== Cameras (embedded) ===== */}
+      <div className="border-t border-[var(--border)] mt-6 pt-6">
+        <div className="mb-4">
+          <h3 className="font-semibold flex items-center gap-2">
+            <i className="fa-solid fa-video text-[var(--blue)]" />
+            Cameras
+          </h3>
+          <p className="text-sm text-[var(--muted)] mt-0.5">
+            Motion-triggered recording to your own storage
+          </p>
+        </div>
+        <CamerasPanel />
       </div>
 
       {/* ===== Automations (embedded) ===== */}

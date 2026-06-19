@@ -1,9 +1,9 @@
 'use client';
 
-// "Cameras & Storage" view — React port of src/cctv.js (rCctv + initCctv).
-// Preserves the exact markup/classNames of the legacy view: UGREEN NAS storage
-// config, ffmpeg status banner, per-camera cards with masked RTSP, add/test
-// camera, and a clip browser.
+// Cameras panel — rendered inside Smart Home (formerly the standalone
+// "Cameras & Storage" view). Preserves the legacy markup/classNames: UGREEN NAS
+// storage config, ffmpeg status banner, per-camera cards with masked RTSP,
+// add/test camera, and a clip browser.
 //
 // Cloud-aware: when /api/cctv/status reports `local-agent-required`, we render a
 // "requires self-hosting" banner while still allowing camera/storage config to
@@ -59,7 +59,7 @@ function gb(n: number | undefined | null): string | number {
   return n === undefined || n === null ? '—' : n;
 }
 
-export function Cctv() {
+export function CamerasPanel() {
   const { toast } = useHousehold();
   const [status, setStatus] = useState<CctvStatus | null>(null);
   const [error, setError] = useState<string>('');
@@ -215,7 +215,7 @@ export function Cctv() {
   if (error) {
     return (
       <div className="max-w-3xl mx-auto space-y-5">
-        <div className="card p-6 text-sm text-[var(--red)]">Couldn’t load CCTV status: {error}</div>
+        <div className="card p-6 text-sm text-[var(--red)]">Couldn’t load camera status: {error}</div>
       </div>
     );
   }
@@ -248,7 +248,7 @@ export function Cctv() {
             <div className="flex items-start gap-3">
               <i className="fa-solid fa-cloud" style={{ color: 'var(--amber)' }} />
               <div className="text-xs">
-                <div className="font-semibold mb-0.5">CCTV recording requires self-hosting</div>
+                <div className="font-semibold mb-0.5">Camera recording requires self-hosting</div>
                 A cloud instance can’t reach cameras on your home network. You can still configure cameras and
                 storage here — run HomePal on your home LAN (with ffmpeg installed) to start motion recording.
               </div>
