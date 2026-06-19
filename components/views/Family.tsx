@@ -15,7 +15,7 @@ const sevColors: Record<Alert['sev'], string> = {
 
 export function Family() {
   const { state, ui } = useHousehold();
-  const { openAddMember, openEditFamilyName } = useActions();
+  const { openAddMember, openEditFamilyName, openEditLocation } = useActions();
   const admin = isAdmin(state, ui.userId);
   const famName = state.householdName || 'Your Family';
   const adminCount = state.members.filter((m) => m.role === 'admin').length;
@@ -43,6 +43,17 @@ export function Family() {
                     aria-label="Edit family name"
                   >
                     <i className="fa-solid fa-pen text-xs" />
+                  </button>
+                )}
+                {admin && (
+                  <button
+                    className="icon-btn"
+                    style={{ width: 30, height: 30 }}
+                    onClick={openEditLocation}
+                    title="Set location (holidays)"
+                    aria-label="Set family location"
+                  >
+                    <i className="fa-solid fa-location-dot text-xs" />
                   </button>
                 )}
               </div>

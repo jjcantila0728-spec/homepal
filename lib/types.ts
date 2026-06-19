@@ -1,6 +1,15 @@
 // Canonical types for the household state. Kept deliberately permissive where the
 // legacy data is loose, but precise enough to make the React port safe.
 
+// A reusable "working time" preset saved on a member. Applied at scheduling
+// time to fill an event's start/end without re-typing them.
+export interface Shift {
+  id: number;
+  label: string;
+  start: string; // "HH:MM"
+  end: string; // "HH:MM"
+}
+
 export interface Member {
   id: number;
   name: string;
@@ -8,13 +17,15 @@ export interface Member {
   status: string;
   color: string;
   init: string;
+  shifts?: Shift[];
 }
 
 export interface CalEvent {
   id: number;
   title: string;
   date: string;
-  time: string;
+  time: string; // start time, "HH:MM"
+  endTime?: string; // optional end time, "HH:MM"
   memberId: number;
   cat: string;
   desc?: string;
@@ -248,8 +259,15 @@ export interface Integrations {
   deako?: DeakoConfig;
 }
 
+// Family location, used to derive public holidays for the Schedule calendar.
+export interface Location {
+  country: string; // ISO-like code matching lib/holidays.ts, e.g. "PH", "US"
+  region?: string; // optional sub-national region key for regional holidays
+}
+
 export interface HouseholdState {
   householdName: string;
+  location?: Location;
   integrations?: Integrations;
   members: Member[];
   events: CalEvent[];

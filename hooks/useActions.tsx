@@ -23,7 +23,9 @@ import type {
   Automation,
   AutomationAction,
   AutomationTrigger,
+  Shift,
 } from '@/lib/types';
+import { HOLIDAY_COUNTRIES } from '@/lib/holidays';
 
 // ---- shared modal chrome ----
 function ModalShell({
@@ -546,7 +548,7 @@ export function useActions() {
     }
     showModal(<EditMemberModal id={id} />);
   }
-  function updateMember(id: number, p: { name: string; status: string; role?: 'admin' | 'member'; color: string }) {
+  function updateMember(id: number, p: { name: string; status: string; role?: 'admin' | 'member'; color: string; shifts?: Shift[] }) {
     if (!p.name.trim()) {
       toast('Enter a name', 'error');
       return;
@@ -559,6 +561,11 @@ export function useActions() {
       m.status = p.status;
       if (p.role) m.role = p.role;
       m.color = p.color || m.color;
+      if (p.shifts)
+        m.shifts = p.shifts
+          .filter((s) => s.label.trim() && s.start && s.end)
+          // new rows carry negative temp ids; give them stable positive ids.
+          .map((s) => ({ ...s, label: s.label.trim(), id: s.id < 0 ? ++d.nid : s.id }));
       runAutomations(d, { type: 'presence' });
       toast(m.name + ' updated', 'success');
     });
@@ -595,21 +602,58 @@ export function useActions() {
     hideModal();
     toast('Family name updated', 'success');
   }
+  function openEditLocation() {
+    if (!requireAdmin()) return;
+    showModal(<EditLocationModal />);
+  }
+  function saveLocation(country: string, region: string) {
+    update((d) => {
+      d.location = country ? { country, region: region || undefined } : undefined;
+    });
+    hideModal();
+    toast(country ? 'Location updated' : 'Location cleared', 'success');
+  }
 
   // ===================== Schedule: events =====================
   function openAddEvent() {
     showModal(<AddEventModal />);
   }
-  function saveEvent(p: { title: string; date: string; time: string; cat: string; memberId: number; desc: string }) {
-    if (!p.title.trim() || !p.date || !p.time) {
+  function saveEvent(p: {
+    title: string;
+    dates: string[];
+    time: string;
+    endTime?: string;
+    cat: string;
+    memberId: number;
+    desc: string;
+  }) {
+    const dates = p.dates.filter(Boolean);
+    if (!p.title.trim() || !dates.length || !p.time) {
       toast('Fill required fields', 'error');
       return;
     }
+    if (p.endTime && p.endTime <= p.time) {
+      toast('End time must be after start', 'error');
+      return;
+    }
     update((d) => {
-      d.events.push({ id: ++d.nid, title: p.title.trim(), date: p.date, time: p.time, memberId: p.memberId, cat: p.cat, desc: p.desc.trim() });
+      for (const date of dates) {
+        d.events.push({
+          id: ++d.nid,
+          title: p.title.trim(),
+          date,
+          time: p.time,
+          endTime: p.endTime || undefined,
+          memberId: p.memberId,
+          cat: p.cat,
+          desc: p.desc.trim(),
+        });
+      }
     });
+    // leave multi-select mode and clear the picked days after scheduling
+    setUI({ multiSelectDays: false, selectedDates: [] });
     hideModal();
-    toast('Event added', 'success');
+    toast(dates.length > 1 ? `Added to ${dates.length} days` : 'Event added', 'success');
   }
   function viewEvent(id: number) {
     const e = state.events.find((x) => x.id === id);
@@ -1403,8 +1447,20 @@ export function useActions() {
     const [status, setStatus] = useState(m?.status ?? 'home');
     const [role, setRole] = useState<'admin' | 'member'>((m?.role as 'admin' | 'member') ?? 'member');
     const [color, setColor] = useState(m?.color ?? '#10B981');
+    const [shifts, setShifts] = useState<Shift[]>(m?.shifts ?? []);
+    const shiftSeq = useState({ n: -1 })[0]; // negative temp ids, normalized on save
     if (!m) return null;
     const statuses = ['home', 'school', 'out', 'work', 'gym'];
+    function addShift() {
+      const id = shiftSeq.n--;
+      setShifts((arr) => [...arr, { id, label: '', start: '09:00', end: '17:00' }]);
+    }
+    function patchShift(id: number, patch: Partial<Shift>) {
+      setShifts((arr) => arr.map((s) => (s.id === id ? { ...s, ...patch } : s)));
+    }
+    function removeShift(id: number) {
+      setShifts((arr) => arr.filter((s) => s.id !== id));
+    }
     return (
       <ModalShell title={'Edit ' + m.name} onClose={hideModal}>
         <div>
@@ -1434,10 +1490,36 @@ export function useActions() {
           <label>Color</label>
           <ColorPicker value={color} onPick={setColor} />
         </div>
+        <div>
+          <div className="flex items-center justify-between mb-1">
+            <label className="!mb-0">Work shifts</label>
+            <button className="btn btn-sm btn-secondary" onClick={addShift} type="button">
+              <i className="fa-solid fa-plus" /> Add
+            </button>
+          </div>
+          {shifts.length === 0 && (
+            <p className="text-[11px] text-[var(--muted)]">Save reusable shifts (e.g. "Work 07:00–19:30") to apply when scheduling.</p>
+          )}
+          {shifts.map((s) => (
+            <div key={s.id} className="flex items-center gap-2 mb-1.5">
+              <input
+                className="input flex-1"
+                value={s.label}
+                onChange={(e) => patchShift(s.id, { label: e.target.value })}
+                placeholder="Label"
+              />
+              <input className="input w-24" type="time" value={s.start} onChange={(e) => patchShift(s.id, { start: e.target.value })} />
+              <input className="input w-24" type="time" value={s.end} onChange={(e) => patchShift(s.id, { end: e.target.value })} />
+              <button className="icon-btn" type="button" onClick={() => removeShift(s.id)} aria-label="Remove shift">
+                <i className="fa-solid fa-trash-can text-xs" />
+              </button>
+            </div>
+          ))}
+        </div>
         <div className="flex gap-3 pt-1">
           <button
             className="btn btn-primary flex-1"
-            onClick={() => updateMember(id, { name, status, role: isAdminUser ? role : undefined, color })}
+            onClick={() => updateMember(id, { name, status, role: isAdminUser ? role : undefined, color, shifts })}
           >
             <i className="fa-solid fa-check" />
             Save
@@ -1469,58 +1551,158 @@ export function useActions() {
     );
   }
 
+  function EditLocationModal() {
+    const [country, setCountry] = useState(state.location?.country ?? '');
+    const [region, setRegion] = useState(state.location?.region ?? '');
+    const selected = HOLIDAY_COUNTRIES.find((c) => c.code === country);
+    const regions = selected?.regions ?? [];
+    return (
+      <ModalShell title="Family Location" onClose={hideModal}>
+        <p className="text-[11px] text-[var(--muted)]">
+          Set your country to show public holidays on the schedule calendar.
+        </p>
+        <div>
+          <label>Country</label>
+          <select
+            className="input"
+            value={country}
+            onChange={(e) => {
+              setCountry(e.target.value);
+              setRegion('');
+            }}
+          >
+            <option value="">Not set</option>
+            {HOLIDAY_COUNTRIES.map((c) => (
+              <option key={c.code} value={c.code}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        {regions.length > 0 && (
+          <div>
+            <label>Region</label>
+            <select className="input" value={region} onChange={(e) => setRegion(e.target.value)}>
+              <option value="">All / national</option>
+              {regions.map((r) => (
+                <option key={r.code} value={r.code}>
+                  {r.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+        <button className="btn btn-primary w-full" onClick={() => saveLocation(country, region)}>
+          <i className="fa-solid fa-check" />
+          Save
+        </button>
+      </ModalShell>
+    );
+  }
+
   function AddEventModal() {
     const cats = Object.keys(catColors);
+    // Operate on the multi-selected days when in multi-select mode, else the
+    // single selected day.
+    const multi = ui.multiSelectDays && ui.selectedDates.length > 0;
+    const dates = multi ? [...ui.selectedDates].sort() : [ui.selectedDate];
     const [title, setTitle] = useState('');
-    const [date, setDate] = useState(ui.selectedDate);
     const [time, setTime] = useState('');
+    const [endTime, setEndTime] = useState('');
     const [cat, setCat] = useState(cats[0]);
     const [memberId, setMemberId] = useState(state.members[0]?.id ?? ui.userId);
     const [desc, setDesc] = useState('');
+
+    const member = getMember(state, memberId);
+    const shifts = member?.shifts ?? [];
+    function applyShift(shiftId: string) {
+      const s = shifts.find((x) => String(x.id) === shiftId);
+      if (!s) return;
+      setTime(s.start);
+      setEndTime(s.end);
+      if (!title.trim()) setTitle(s.label);
+    }
+
     return (
-      <ModalShell title="Add Event" onClose={hideModal}>
+      <ModalShell title={multi ? `Add Event · ${dates.length} days` : 'Add Event'} onClose={hideModal}>
+        {multi ? (
+          <div>
+            <label>Selected days</label>
+            <div className="flex flex-wrap gap-1.5">
+              {dates.map((d) => (
+                <span key={d} className="text-[11px] px-2 py-1 rounded-lg bg-[var(--surface2)] text-[var(--muted)]">
+                  {d.slice(5)}
+                </span>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div>
+            <label>Date</label>
+            <input
+              className="input"
+              type="date"
+              value={dates[0]}
+              onChange={(e) => setUI({ selectedDate: e.target.value })}
+            />
+          </div>
+        )}
         <div>
           <label>Title</label>
           <input className="input" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Event title" />
         </div>
+        <div>
+          <label>Assign To</label>
+          <select className="input" value={memberId} onChange={(e) => setMemberId(+e.target.value)}>
+            {state.members.map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        {shifts.length > 0 && (
+          <div>
+            <label>Use saved shift</label>
+            <select className="input" value="" onChange={(e) => applyShift(e.target.value)}>
+              <option value="">Pick a shift…</option>
+              {shifts.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.label} ({s.start}–{s.end})
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label>Date</label>
-            <input className="input" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-          </div>
-          <div>
-            <label>Time</label>
+            <label>Start</label>
             <input className="input" type="time" value={time} onChange={(e) => setTime(e.target.value)} />
           </div>
+          <div>
+            <label>End (optional)</label>
+            <input className="input" type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} />
+          </div>
         </div>
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label>Category</label>
-            <select className="input" value={cat} onChange={(e) => setCat(e.target.value)}>
-              {cats.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label>Assign To</label>
-            <select className="input" value={memberId} onChange={(e) => setMemberId(+e.target.value)}>
-              {state.members.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.name}
-                </option>
-              ))}
-            </select>
-          </div>
+        <div>
+          <label>Category</label>
+          <select className="input" value={cat} onChange={(e) => setCat(e.target.value)}>
+            {cats.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </select>
         </div>
         <div>
           <label>Description</label>
           <input className="input" value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="Optional" />
         </div>
-        <button className="btn btn-primary w-full" onClick={() => saveEvent({ title, date, time, cat, memberId, desc })}>
-          Save
+        <button
+          className="btn btn-primary w-full"
+          onClick={() => saveEvent({ title, dates, time, endTime, cat, memberId, desc })}
+        >
+          {multi ? `Add to ${dates.length} days` : 'Save'}
         </button>
       </ModalShell>
     );
@@ -1538,7 +1720,7 @@ export function useActions() {
         </div>
         <div className="flex items-center gap-3">
           <i className="fa-regular fa-clock text-[var(--muted)]" />
-          <span>{e.time}</span>
+          <span>{e.time}{e.endTime ? ` – ${e.endTime}` : ''}</span>
         </div>
         <div className="flex items-center gap-3">
           <i className="fa-solid fa-tag text-[var(--muted)]" />
@@ -1839,6 +2021,8 @@ export function useActions() {
     removeMember,
     openEditFamilyName,
     saveFamilyName,
+    openEditLocation,
+    saveLocation,
     // schedule events
     openAddEvent,
     saveEvent,

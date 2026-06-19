@@ -28,6 +28,8 @@ export interface UIState {
   calMonth: number;
   calYear: number;
   selectedDate: string;
+  multiSelectDays: boolean; // when true, calendar clicks toggle selectedDates
+  selectedDates: string[]; // days chosen in multi-select mode
   notifOpen: boolean;
 }
 
@@ -89,6 +91,8 @@ export function HouseholdProvider({
     calMonth: now.getMonth(),
     calYear: now.getFullYear(),
     selectedDate: new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString().split('T')[0],
+    multiSelectDays: false,
+    selectedDates: [],
     notifOpen: false,
   });
   const [toasts, setToasts] = useState<Toast[]>([]);

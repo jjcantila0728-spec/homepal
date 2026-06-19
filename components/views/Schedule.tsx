@@ -5,6 +5,7 @@ import { useActions } from '@/hooks/useActions';
 import { Avatar, fd } from '@/lib/format';
 import { getMember } from '@/lib/selectors';
 import { catColors, dayNames } from '@/lib/constants';
+import { holidayMap } from '@/lib/holidays';
 import { EmptyState } from '@/components/ui/Cards';
 
 const M_NAMES = [
@@ -37,6 +38,9 @@ export function Schedule() {
   const CM = now.getMonth();
   const CD = now.getDate();
 
+  // Public holidays for the visible year, keyed by "YYYY-MM-DD".
+  const holidays = holidayMap(state.location?.country, state.location?.region, y);
+
   // Mirror legacy changeMonth(delta).
   function changeMonth(delta: number) {
     let cm = m + delta;
@@ -52,10 +56,26 @@ export function Schedule() {
     setUI({ calMonth: cm, calYear: cy });
   }
 
+  function toggleMultiSelect() {
+    setUI({ multiSelectDays: !ui.multiSelectDays, selectedDates: [] });
+  }
+
+  function onDayClick(ds2: string) {
+    if (ui.multiSelectDays) {
+      const set = new Set(ui.selectedDates);
+      if (set.has(ds2)) set.delete(ds2);
+      else set.add(ds2);
+      setUI({ selectedDates: [...set] });
+    } else {
+      setUI({ selectedDate: ds2 });
+    }
+  }
+
   const selEvts = state.events
     .filter((e) => e.date === ui.selectedDate)
     .slice()
     .sort((a, b) => a.time.localeCompare(b.time));
+  const selHoliday = holidays[ui.selectedDate];
 
   return (
     <div className="flex flex-col lg:flex-row gap-5">
@@ -72,6 +92,30 @@ export function Schedule() {
               <i className="fa-solid fa-chevron-right" />
             </button>
           </div>
+
+          <div className="flex items-center justify-between mb-3">
+            <button
+              className={`btn btn-sm ${ui.multiSelectDays ? 'btn-primary' : 'btn-secondary'}`}
+              onClick={toggleMultiSelect}
+              aria-pressed={ui.multiSelectDays}
+            >
+              <i className="fa-solid fa-calendar-check" />
+              {ui.multiSelectDays ? 'Selecting days' : 'Select days'}
+            </button>
+            {ui.multiSelectDays && (
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-[var(--muted)]">{ui.selectedDates.length} selected</span>
+                <button
+                  className="btn btn-sm btn-primary"
+                  onClick={openAddEvent}
+                  disabled={ui.selectedDates.length === 0}
+                >
+                  <i className="fa-solid fa-plus" /> Add event
+                </button>
+              </div>
+            )}
+          </div>
+
           <div className="cal-grid">
             {dayNames.map((dn) => (
               <div key={dn} className="cal-head">
@@ -85,18 +129,27 @@ export function Schedule() {
               const d = i + 1;
               const ds2 = y + '-' + String(m + 1).padStart(2, '0') + '-' + String(d).padStart(2, '0');
               const isToday = d === CD && m === CM && y === CY;
-              const isSel = ds2 === ui.selectedDate;
+              const isSel = ui.multiSelectDays ? ui.selectedDates.includes(ds2) : ds2 === ui.selectedDate;
               const dev = state.events.filter((e) => e.date === ds2);
+              const holName = holidays[ds2];
               return (
                 <div
                   key={ds2}
-                  className={`cal-day ${isToday ? 'today' : ''} ${isSel ? 'selected' : ''}`}
-                  onClick={() => setUI({ selectedDate: ds2 })}
-                  aria-label={ds2 + (dev.length ? ', ' + dev.length + ' events' : '')}
+                  className={`cal-day ${isToday ? 'today' : ''} ${isSel ? 'selected' : ''} ${holName ? 'holiday' : ''}`}
+                  onClick={() => onDayClick(ds2)}
+                  title={holName || undefined}
+                  aria-label={
+                    ds2 +
+                    (holName ? ', holiday: ' + holName : '') +
+                    (dev.length ? ', ' + dev.length + ' events' : '')
+                  }
                 >
                   <span className="day-num">{d}</span>
-                  {dev.length > 0 && (
+                  {(dev.length > 0 || holName) && (
                     <div className="flex flex-wrap gap-0.5 mt-0.5">
+                      {holName && (
+                        <span className="evt-dot" style={{ background: 'var(--amber)' }} aria-hidden="true" />
+                      )}
                       {dev.map((ev) => (
                         <span key={ev.id} className="evt-dot" style={{ background: catColors[ev.cat] || '#6B7B8D' }} />
                       ))}
@@ -117,6 +170,12 @@ export function Schedule() {
               <i className="fa-solid fa-plus" />
             </button>
           </div>
+          {selHoliday && (
+            <div className="p-2.5 rounded-xl mb-1.5 flex items-center gap-2 bg-[var(--surface2)]">
+              <i className="fa-solid fa-star text-[var(--amber)]" />
+              <span className="text-sm font-medium">Holiday: {selHoliday}</span>
+            </div>
+          )}
           {selEvts.length ? (
             selEvts.map((se) => {
               const sm = getMember(state, se.memberId);
@@ -130,6 +189,7 @@ export function Schedule() {
                   <div className="font-medium text-sm">{se.title}</div>
                   <div className="text-[11px] text-[var(--muted)]">
                     <i className="fa-regular fa-clock" /> {se.time}
+                    {se.endTime ? `–${se.endTime}` : ''}
                   </div>
                   <div className="flex items-center gap-1.5 mt-1">
                     <Avatar member={sm} size={18} fontSize={7} radius={5} />
@@ -138,7 +198,7 @@ export function Schedule() {
                 </div>
               );
             })
-          ) : (
+          ) : selHoliday ? null : (
             <EmptyState color="var(--amber)" title="No events" sub="Nothing scheduled for this day" />
           )}
         </div>
