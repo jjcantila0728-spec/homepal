@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { queryOne } from '@/lib/db';
+import { queryOne, isDbConnectivityError } from '@/lib/db';
 import { verifyPassword } from '@/lib/auth';
 import { setSession } from '@/lib/session';
 
@@ -16,15 +16,31 @@ export async function POST(req: Request) {
   const email = String(body.email || '').trim().toLowerCase();
   const password = String(body.password || '');
 
-  const user = await queryOne<{ id: string; email: string; password_hash: string; plan: string }>(
-    'SELECT id, email, password_hash, plan FROM users WHERE email = $1',
-    [email],
-  );
-
-  if (!user || !verifyPassword(password, user.password_hash)) {
-    return NextResponse.json({ error: 'Invalid email or password.' }, { status: 401 });
+  if (!email || !password) {
+    return NextResponse.json({ error: 'Email and password are required.' }, { status: 400 });
   }
 
-  await setSession(user.id);
-  return NextResponse.json({ ok: true, user: { id: user.id, email: user.email, plan: user.plan } });
+  try {
+    const user = await queryOne<{ id: string; email: string; password_hash: string; plan: string }>(
+      'SELECT id, email, password_hash, plan FROM users WHERE email = $1',
+      [email],
+    );
+
+    if (!user || !verifyPassword(password, user.password_hash)) {
+      return NextResponse.json({ error: 'Invalid email or password.' }, { status: 401 });
+    }
+
+    await setSession(user.id);
+    return NextResponse.json({ ok: true, user: { id: user.id, email: user.email, plan: user.plan } });
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error('login failed:', err);
+    if (isDbConnectivityError(err)) {
+      return NextResponse.json(
+        { error: 'Service temporarily unavailable — please try again in a moment.' },
+        { status: 503 },
+      );
+    }
+    return NextResponse.json({ error: 'Could not sign you in. Please try again.' }, { status: 500 });
+  }
 }

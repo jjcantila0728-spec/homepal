@@ -11,10 +11,18 @@ function makePool(): Pool {
   // Only negotiate TLS when the connection explicitly asks for it. Managed
   // Postgres on the same private network (e.g. Cantila) often does NOT support
   // SSL — forcing it throws "The server does not support SSL connections" and
-  // breaks every query. Opt in via `?sslmode=require` or PGSSL=1.
-  const wantSsl = /sslmode=require/.test(connectionString) || process.env.PGSSL === '1';
+  // breaks every query. Opt in via an `sslmode=` query param or PGSSL=1.
+  const wantSsl = /sslmode=(require|verify-ca|verify-full|prefer|no-verify)/.test(connectionString) ||
+    process.env.PGSSL === '1';
+  // Strip any `sslmode=` from the string: newer pg treats require/verify-ca as
+  // verify-full, which rejects Supabase's pooler cert chain ("self-signed
+  // certificate in certificate chain") and overrides the ssl option below.
+  // We control TLS verification exclusively through the explicit ssl option.
+  const cleanedConnectionString = connectionString.replace(/([?&])sslmode=[^&]*(&|$)/, (_m, pre, post) =>
+    post === '&' ? pre : '',
+  );
   const pool = new Pool({
-    connectionString,
+    connectionString: cleanedConnectionString,
     ssl: wantSsl ? { rejectUnauthorized: false } : undefined,
     max: 10,
   });
@@ -47,6 +55,27 @@ export async function queryOne<T extends QueryResultRow = QueryResultRow>(
 ): Promise<T | null> {
   const rows = await query<T>(text, params);
   return rows[0] ?? null;
+}
+
+// Postgres/network errors that mean "the database is unreachable or down",
+// as opposed to a normal query/constraint error. Used by API routes to return
+// a clean 503 instead of leaking a stack trace as a 500.
+const CONNECTIVITY_CODES = new Set([
+  'ENOTFOUND', // DNS can't resolve host (e.g. unreachable managed-DB host)
+  'ECONNREFUSED', // nothing listening on host:port
+  'ETIMEDOUT', // connection attempt timed out
+  'EHOSTUNREACH',
+  'ENETUNREACH',
+  'ECONNRESET',
+  '57P03', // PG: cannot_connect_now (server starting up/shutting down)
+  '53300', // PG: too_many_connections
+  '08001', // PG: sqlclient_unable_to_establish_sqlconnection
+  '08006', // PG: connection_failure
+]);
+
+export function isDbConnectivityError(err: unknown): boolean {
+  const code = (err as { code?: string } | null)?.code;
+  return typeof code === 'string' && CONNECTIVITY_CODES.has(code);
 }
 
 // Run a function inside a transaction; rolls back on throw.

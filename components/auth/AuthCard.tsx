@@ -53,6 +53,7 @@ export function AuthCard({ mode }: { mode: AuthMode }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [showPw, setShowPw] = useState(false);
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -180,15 +181,30 @@ export function AuthCard({ mode }: { mode: AuthMode }) {
               </div>
               <div>
                 <label>Password</label>
-                <input
-                  className="input"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
-                  placeholder={mode === 'register' ? 'At least 8 characters' : undefined}
-                  required
-                />
+                <div className="relative">
+                  <input
+                    className="input"
+                    style={{ paddingRight: 40 }}
+                    type={showPw ? 'text' : 'password'}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+                    placeholder={mode === 'register' ? 'At least 8 characters' : undefined}
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPw((v) => !v)}
+                    aria-label={showPw ? 'Hide password' : 'Show password'}
+                    aria-pressed={showPw}
+                    title={showPw ? 'Hide password' : 'Show password'}
+                    className="absolute inset-y-0 right-0 flex items-center px-3 text-[var(--muted)]"
+                    style={{ background: 'transparent', border: 0, cursor: 'pointer' }}
+                    tabIndex={-1}
+                  >
+                    <i className={`fa-solid ${showPw ? 'fa-eye-slash' : 'fa-eye'}`} />
+                  </button>
+                </div>
               </div>
               <button className="btn btn-primary w-full" type="submit" disabled={busy}>
                 {mode === 'login' ? 'Sign in' : 'Create account'}

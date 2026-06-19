@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { tx } from '@/lib/db';
+import { tx, isDbConnectivityError } from '@/lib/db';
 import { hashPassword } from '@/lib/auth';
 import { setSession } from '@/lib/session';
 import { buildSeedState } from '@/lib/seed';
@@ -52,6 +52,12 @@ export async function POST(req: Request) {
     }
     // eslint-disable-next-line no-console
     console.error('register failed:', err);
+    if (isDbConnectivityError(err)) {
+      return NextResponse.json(
+        { error: 'Service temporarily unavailable — please try again in a moment.' },
+        { status: 503 },
+      );
+    }
     return NextResponse.json({ error: 'Could not create your account.' }, { status: 500 });
   }
 }

@@ -3,6 +3,8 @@ data/
 *.log
 .DS_Store
 .env
+.env*.local
+.pushtmp/
 
 # CCTV runtime artifacts
 data/.cctv-key
