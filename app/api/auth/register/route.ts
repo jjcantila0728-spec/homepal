@@ -40,7 +40,16 @@ export async function POST(req: Request) {
       );
       const uid = userRes.rows[0].id;
       const state = buildSeedState(name, body.householdName);
-      await client.query('INSERT INTO households (owner_user_id, state) VALUES ($1, $2)', [uid, state]);
+      const hh = await client.query<{ id: string }>(
+        'INSERT INTO households (owner_user_id, state) VALUES ($1, $2) RETURNING id',
+        [uid, state],
+      );
+      // The registering user is the household admin, claiming the seed admin
+      // member profile (id 1).
+      await client.query(
+        'UPDATE users SET household_id = $1, member_id = 1, role = $2 WHERE id = $3',
+        [hh.rows[0].id, 'admin', uid],
+      );
       return uid;
     });
 

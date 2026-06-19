@@ -13,6 +13,9 @@ export async function GET() {
       plan: user.plan,
       subscriptionStatus: user.subscription_status,
       currentPeriodEnd: user.current_period_end,
+      memberId: user.member_id,
+      role: user.role,
+      mustChangePassword: user.must_change_password,
     },
   });
 }

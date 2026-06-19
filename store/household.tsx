@@ -42,6 +42,7 @@ export interface HouseholdContextValue {
   state: HouseholdState;
   ui: UIState;
   plan: Plan;
+  isAdmin: boolean;
   ready: boolean;
   update: (fn: (draft: HouseholdState) => void) => void;
   setUI: (patch: Partial<UIState>) => void;
@@ -66,18 +67,23 @@ const now = new Date();
 export function HouseholdProvider({
   initialState,
   initialPlan,
+  initialUserId,
+  initialIsAdmin,
   children,
 }: {
   initialState: HouseholdState;
   initialPlan: Plan;
+  initialUserId?: number;
+  initialIsAdmin?: boolean;
   children: ReactNode;
 }) {
   const router = useRouter();
   const [state, setState] = useState<HouseholdState>(initialState);
   const [plan] = useState<Plan>(initialPlan);
+  const [isAdmin] = useState<boolean>(!!initialIsAdmin);
   const [ready, setReady] = useState(true);
   const [ui, setUIState] = useState<UIState>({
-    userId: initialState.members[0]?.id ?? 1,
+    userId: initialUserId ?? initialState.members[0]?.id ?? 1,
     homeRoom: 'all',
     tasksTab: 'chores',
     calMonth: now.getMonth(),
@@ -189,6 +195,7 @@ export function HouseholdProvider({
     state,
     ui,
     plan,
+    isAdmin,
     ready,
     update,
     setUI,

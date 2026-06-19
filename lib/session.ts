@@ -9,6 +9,10 @@ export interface SessionUser {
   subscription_status: string | null;
   stripe_customer_id: string | null;
   current_period_end: Date | null;
+  household_id: string | null;
+  member_id: number | null;
+  role: string;
+  must_change_password: boolean;
 }
 
 const MAX_AGE = 60 * 60 * 24 * 30; // 30 days
@@ -36,7 +40,8 @@ export async function getSessionUser(): Promise<SessionUser | null> {
   const payload = verifyToken(token);
   if (!payload?.uid) return null;
   return queryOne<SessionUser>(
-    `SELECT id, email, plan, subscription_status, stripe_customer_id, current_period_end
+    `SELECT id, email, plan, subscription_status, stripe_customer_id, current_period_end,
+            household_id, member_id, role, must_change_password
      FROM users WHERE id = $1`,
     [payload.uid],
   );

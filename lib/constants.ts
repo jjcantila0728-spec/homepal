@@ -81,6 +81,5 @@ export const VIEWS = [
   { id: 'schedule', icon: 'fa-calendar', label: 'Schedule', href: '/app/schedule' },
   { id: 'finance', icon: 'fa-wallet', label: 'Finance', href: '/app/finance' },
   { id: 'home', icon: 'fa-house-signal', label: 'Smart Home', href: '/app/home' },
-  { id: 'cctv', icon: 'fa-video', label: 'CCTV', href: '/app/cctv' },
   { id: 'tasks', icon: 'fa-list-check', label: 'Tasks', href: '/app/tasks' },
 ] as const;

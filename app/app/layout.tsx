@@ -15,7 +15,12 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const plan: Plan = user.plan === 'pro' ? 'pro' : 'free';
 
   return (
-    <HouseholdProvider initialState={state} initialPlan={plan}>
+    <HouseholdProvider
+      initialState={state}
+      initialPlan={plan}
+      initialUserId={user.member_id ?? undefined}
+      initialIsAdmin={user.role === 'admin'}
+    >
       <AppShell>{children}</AppShell>
     </HouseholdProvider>
   );
