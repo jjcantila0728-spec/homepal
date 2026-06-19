@@ -5,6 +5,7 @@ import { getSessionUser } from '@/lib/session';
 import { isCloud, LOCAL_AGENT_REQUIRED } from '@/lib/cctv/cloud';
 import { can } from '@/lib/entitlements';
 import { validateRtspUrl } from '@/lib/cctv';
+import { buildRtspUrl, type BrandFields } from '@/lib/cameras/brands';
 
 export const runtime = 'nodejs';
 
@@ -18,12 +19,20 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, reason: LOCAL_AGENT_REQUIRED });
   }
 
-  let body: { rtspUrl?: string };
+  let body: Partial<BrandFields> & { rtspUrl?: string };
   try {
     body = await req.json();
   } catch {
     body = {};
   }
-  const result = await validateRtspUrl(String(body.rtspUrl || ''));
+  let url = typeof body.rtspUrl === 'string' ? body.rtspUrl.trim() : '';
+  if (!url && body.brand) {
+    try {
+      url = buildRtspUrl(body as BrandFields).rtspUrl;
+    } catch (e) {
+      return NextResponse.json({ ok: false, reason: (e as Error).message }, { status: 400 });
+    }
+  }
+  const result = await validateRtspUrl(url);
   return NextResponse.json(result);
 }

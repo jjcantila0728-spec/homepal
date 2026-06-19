@@ -9,6 +9,8 @@ import { encryptSecret, decryptSecret } from '@/lib/crypto';
 import { isCloud } from '@/lib/cctv/cloud';
 import { can } from '@/lib/entitlements';
 import { applyConfig, sanitizeCamerasForClient, type Camera, type EngineConfig } from '@/lib/cctv';
+import { buildRtspUrl } from '@/lib/cameras/brands';
+import { isPrivateHost } from '@/lib/discovery';
 import type { HouseholdState } from '@/lib/seed';
 import { randomUUID } from 'node:crypto';
 
@@ -22,6 +24,11 @@ interface RawCamera {
   preRoll?: number;
   postRoll?: number;
   enabled?: boolean;
+  brand?: 'tapo' | 'onvif' | 'generic';
+  host?: string;
+  username?: string;
+  password?: string;
+  streamQuality?: 'hd' | 'sd';
 }
 
 interface ConfigBody {
@@ -62,21 +69,29 @@ export async function POST(req: Request) {
     const id = String(raw.id || randomUUID());
     const existing = prevById.get(id);
     let rtspUrl: string;
-    if (typeof raw.rtspUrl === 'string' && raw.rtspUrl.trim()) {
-      if (!/^rtsp:\/\//i.test(raw.rtspUrl.trim())) {
-        return NextResponse.json(
-          { error: `Camera "${raw.name || id}" stream URL must start with rtsp://` },
-          { status: 400 },
-        );
+    const hasLiteral = typeof raw.rtspUrl === 'string' && raw.rtspUrl.trim();
+    if (hasLiteral) {
+      if (!/^rtsp:\/\//i.test(raw.rtspUrl!.trim())) {
+        return NextResponse.json({ error: `Camera "${raw.name || id}" stream URL must start with rtsp://` }, { status: 400 });
       }
-      rtspUrl = encryptSecret(raw.rtspUrl.trim());
+      rtspUrl = encryptSecret(raw.rtspUrl!.trim());
+    } else if (raw.brand && (raw.host || raw.brand !== 'tapo')) {
+      if (raw.host && !isPrivateHost(raw.host)) {
+        return NextResponse.json({ error: `Camera "${raw.name || id}" host must be a private LAN address` }, { status: 400 });
+      }
+      try {
+        const built = buildRtspUrl({
+          brand: raw.brand, host: raw.host, username: raw.username,
+          password: raw.password, streamQuality: raw.streamQuality, rtspPath: undefined,
+        });
+        rtspUrl = encryptSecret(built.rtspUrl);
+      } catch (e) {
+        return NextResponse.json({ error: `Camera "${raw.name || id}": ${(e as Error).message}` }, { status: 400 });
+      }
     } else if (existing) {
       rtspUrl = existing.rtspUrl; // keep stored ciphertext
     } else {
-      return NextResponse.json(
-        { error: `Camera "${raw.name || id}" needs an rtsp:// stream URL` },
-        { status: 400 },
-      );
+      return NextResponse.json({ error: `Camera "${raw.name || id}" needs a stream (brand fields or rtsp:// URL)` }, { status: 400 });
     }
     cameras.push({
       id,
@@ -86,6 +101,9 @@ export async function POST(req: Request) {
       preRoll: Math.min(30, Math.max(0, Number(raw.preRoll) ?? 5)),
       postRoll: Math.min(60, Math.max(0, Number(raw.postRoll) ?? 8)),
       enabled: !!raw.enabled,
+      brand: raw.brand ?? (existing?.brand),
+      host: raw.host ?? existing?.host,
+      streamQuality: raw.streamQuality ?? existing?.streamQuality,
     });
   }
 
