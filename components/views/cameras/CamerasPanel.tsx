@@ -51,6 +51,18 @@ interface CameraPayload {
   preRoll?: number;
   postRoll?: number;
   enabled?: boolean;
+  brand?: 'tapo' | 'onvif' | 'generic';
+  host?: string;
+  username?: string;
+  password?: string;
+  streamQuality?: 'hd' | 'sd';
+}
+
+// The modal exposes a friendly brand union; 'adt' maps to the generic/onvif
+// adapter on the wire (many ADT cameras don't expose RTSP/ONVIF — best-effort).
+type UiBrand = 'tapo' | 'adt' | 'generic';
+function brandWire(b: UiBrand): 'tapo' | 'onvif' | 'generic' {
+  return b === 'tapo' ? 'tapo' : 'generic';
 }
 
 const LOCAL_AGENT_REQUIRED = 'local-agent-required';
@@ -60,7 +72,7 @@ function gb(n: number | undefined | null): string | number {
 }
 
 export function CamerasPanel() {
-  const { toast } = useHousehold();
+  const { toast, showModal, hideModal } = useHousehold();
   const [status, setStatus] = useState<CctvStatus | null>(null);
   const [error, setError] = useState<string>('');
   const statusRef = useRef<CctvStatus | null>(null);
@@ -157,30 +169,50 @@ export function CamerasPanel() {
     );
   };
 
-  const cctvAddCamera = () => {
-    const name = window.prompt('Camera name (e.g. Front Door):');
-    if (!name) return;
-    const rtsp = window.prompt('RTSP URL (e.g. rtsp://user:pass@192.168.1.50:554/stream1):');
-    if (!rtsp) return;
-    toast('Testing stream…', 'info');
-    fetch('/api/cctv/test', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ rtspUrl: rtsp }),
-    })
-      .then((r) => r.json())
-      .then((res: { ok?: boolean; reason?: string }) => {
-        if (!res.ok) {
-          const why = res.reason === LOCAL_AGENT_REQUIRED ? 'self-hosting required' : res.reason || 'unreachable';
-          toast('Stream test failed: ' + why + ' — saving anyway', 'error');
-        }
-        const cams = camerasPayload();
-        cams.push({ name, rtspUrl: rtsp, sensitivity: 0.04, preRoll: 5, postRoll: 8, enabled: true });
-        return saveConfig({ cameras: cams });
+  // Submit handler for the Add Camera modal: sends brand fields (not a hand-built
+  // URL) to /test then /config, so the server derives + encrypts the rtsp URL.
+  const submitAddCamera = useCallback(
+    async (form: {
+      name: string;
+      brand: UiBrand;
+      host: string;
+      username: string;
+      password: string;
+      streamQuality: 'hd' | 'sd';
+      rtspUrl: string;
+    }): Promise<void> => {
+      const wire = brandWire(form.brand);
+      const fields: Partial<CameraPayload> & { brand: 'tapo' | 'onvif' | 'generic' } =
+        wire === 'tapo'
+          ? { brand: wire, host: form.host, username: form.username, password: form.password, streamQuality: form.streamQuality }
+          : form.rtspUrl.trim()
+            ? { brand: wire, rtspUrl: form.rtspUrl.trim() }
+            : { brand: wire, host: form.host, username: form.username, password: form.password };
+      toast('Testing stream…', 'info');
+      const t = await fetch('/api/cctv/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(fields),
       })
-      .then(() => toast('Camera added', 'success'))
-      .catch((e: Error) => toast(e.message || 'Could not add camera', 'error'));
-  };
+        .then((r) => r.json())
+        .catch(() => ({ ok: false }));
+      if (!t.ok) {
+        const why = t.reason === LOCAL_AGENT_REQUIRED ? 'self-hosting required' : t.reason || 'unreachable';
+        toast('Stream test failed: ' + why + ' — saving anyway', 'error');
+      }
+      const cams = camerasPayload();
+      cams.push({ name: form.name || 'Camera', sensitivity: 0.04, preRoll: 5, postRoll: 8, enabled: true, ...fields } as CameraPayload);
+      await saveConfig({ cameras: cams })
+        .then(() => {
+          toast('Camera added', 'success');
+          hideModal();
+        })
+        .catch((e: Error) => toast(e.message || 'Could not add camera', 'error'));
+    },
+    [camerasPayload, saveConfig, toast, hideModal],
+  );
+
+  const cctvAddCamera = () => showModal(<AddCameraModal onClose={hideModal} onSubmit={submitAddCamera} />);
 
   const cctvShowClips = (cameraName: string) => {
     setClipsFor(cameraName);
@@ -328,15 +360,16 @@ export function CamerasPanel() {
                     <div className="font-semibold text-sm truncate">{c.name}</div>
                     <div className="text-[11px] text-[var(--muted)] truncate">{c.rtspMasked || 'no stream set'}</div>
                   </div>
-                  <label className="text-xs flex items-center gap-1 flex-shrink-0">
+                  <div className="text-xs flex items-center gap-2 flex-shrink-0">
                     {c.recording && <span style={{ color: 'var(--accent)' }}>● rec</span>}
-                    <input
-                      type="checkbox"
-                      checked={!!c.enabled}
-                      onChange={(e) => cctvToggleCamera(c.id, e.target.checked)}
-                    />{' '}
-                    on
-                  </label>
+                    <div
+                      className={`toggle ${c.enabled ? 'on' : ''}`}
+                      style={{ width: 40, height: 22 }}
+                      onClick={() => cctvToggleCamera(c.id, !c.enabled)}
+                      aria-label={`Recording for ${c.name}`}
+                      aria-pressed={!!c.enabled}
+                    />
+                  </div>
                 </div>
                 <div className="flex items-center gap-2 mt-2 text-[11px] text-[var(--muted)]">
                   Sensitivity{' '}
@@ -403,6 +436,131 @@ export function CamerasPanel() {
             </>
           )}
         </div>
+      </div>
+    </div>
+  );
+}
+
+// Brand-aware Add Camera form, rendered into the app's global ModalHost via
+// showModal. Mirrors the app's modal markup (header + close, .input fields,
+// btn btn-primary). Submits friendly brand fields — the server derives the URL.
+function AddCameraModal({
+  onClose,
+  onSubmit,
+}: {
+  onClose: () => void;
+  onSubmit: (form: {
+    name: string;
+    brand: UiBrand;
+    host: string;
+    username: string;
+    password: string;
+    streamQuality: 'hd' | 'sd';
+    rtspUrl: string;
+  }) => Promise<void>;
+}) {
+  const [name, setName] = useState('');
+  const [brand, setBrand] = useState<UiBrand>('tapo');
+  const [host, setHost] = useState('');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [streamQuality, setStreamQuality] = useState<'hd' | 'sd'>('hd');
+  const [rtspUrl, setRtspUrl] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  async function submit() {
+    setBusy(true);
+    await onSubmit({ name, brand, host, username, password, streamQuality, rtspUrl });
+    setBusy(false);
+  }
+
+  return (
+    <div className="p-5">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="font-bold">Add Camera</h3>
+        <button className="text-[var(--muted)] hover:text-[var(--fg)]" onClick={onClose} aria-label="Close">
+          <i className="fa-solid fa-xmark" />
+        </button>
+      </div>
+      <div className="space-y-3">
+        <div>
+          <label>Name</label>
+          <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Front Door" />
+        </div>
+        <div>
+          <label>Brand</label>
+          <select className="input" value={brand} onChange={(e) => setBrand(e.target.value as UiBrand)}>
+            <option value="tapo">Tapo</option>
+            <option value="adt">ADT (experimental)</option>
+            <option value="generic">Generic ONVIF</option>
+          </select>
+        </div>
+
+        {brand === 'tapo' ? (
+          <>
+            <div>
+              <label>Camera IP / host</label>
+              <input className="input" value={host} onChange={(e) => setHost(e.target.value)} placeholder="192.168.1.50" />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label>Camera username</label>
+                <input className="input" value={username} onChange={(e) => setUsername(e.target.value)} />
+              </div>
+              <div>
+                <label>Camera password</label>
+                <input className="input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
+              </div>
+            </div>
+            <div>
+              <label>Quality</label>
+              <select className="input" value={streamQuality} onChange={(e) => setStreamQuality(e.target.value as 'hd' | 'sd')}>
+                <option value="hd">HD (stream1)</option>
+                <option value="sd">SD (stream2)</option>
+              </select>
+            </div>
+            <div className="text-[11px] text-[var(--muted)]">
+              Use the camera account you created in the Tapo app, not your Tapo login.
+            </div>
+          </>
+        ) : (
+          <>
+            <div>
+              <label>Stream URL (rtsp://)</label>
+              <input
+                className="input"
+                value={rtspUrl}
+                onChange={(e) => setRtspUrl(e.target.value)}
+                placeholder="rtsp://user:pass@192.168.1.50:554/stream"
+              />
+            </div>
+            <div className="text-[11px] text-[var(--muted)]">— or — provide host + credentials below</div>
+            <div>
+              <label>Camera IP / host</label>
+              <input className="input" value={host} onChange={(e) => setHost(e.target.value)} placeholder="192.168.1.50" />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label>Username</label>
+                <input className="input" value={username} onChange={(e) => setUsername(e.target.value)} />
+              </div>
+              <div>
+                <label>Password</label>
+                <input className="input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
+              </div>
+            </div>
+            <div
+              className="text-[11px] p-2 rounded-lg"
+              style={{ border: '1px solid rgba(245,158,11,.4)', background: 'rgba(245,158,11,.08)', color: 'var(--amber)' }}
+            >
+              Experimental — many ADT cameras don’t expose RTSP/ONVIF.
+            </div>
+          </>
+        )}
+
+        <button className="btn btn-primary w-full" onClick={submit} disabled={busy}>
+          {busy ? 'Adding…' : 'Add Camera'}
+        </button>
       </div>
     </div>
   );
