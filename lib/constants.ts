@@ -93,14 +93,14 @@ export interface ConnectorProvider {
 
 export const connectorProviders: ConnectorProvider[] = [
   // Work schedules → keep Schedule in sync
-  { id: 'google-calendar', name: 'Google Calendar', kind: 'calendar', icon: 'fa-brands fa-google', color: '#4285F4', blurb: 'Sync shifts & meetings from your Google account', accountHint: 'you@gmail.com', auth: 'oauth' },
+  { id: 'google-calendar', name: 'Google Calendar', kind: 'calendar', icon: 'fa-brands fa-google', color: '#4285F4', blurb: 'Paste or link your Google Calendar export — AI reads the shifts', accountHint: 'paste/link your calendar', auth: 'ai-import' },
   { id: 'outlook', name: 'Outlook Calendar', kind: 'calendar', icon: 'fa-brands fa-microsoft', color: '#0078D4', blurb: 'Paste or upload your work calendar export', accountHint: 'you@company.com', auth: 'ai-import' },
   { id: 'apple-calendar', name: 'Apple Calendar', kind: 'calendar', icon: 'fa-brands fa-apple', color: '#A2AAAD', blurb: 'Import an exported iCloud calendar (.ics/paste)', accountHint: 'you@icloud.com', auth: 'ai-import' },
   { id: 'workday', name: 'Workday', kind: 'calendar', icon: 'fa-solid fa-briefcase', color: '#F59E0B', blurb: 'Paste or screenshot your shifts & PTO', accountHint: 'paste your roster', auth: 'ai-import' },
   { id: 'deputy', name: 'Deputy', kind: 'calendar', icon: 'fa-solid fa-clipboard-user', color: '#EC4899', blurb: 'Paste or screenshot your rostered shifts', accountHint: 'paste your roster', auth: 'ai-import' },
 
   // Bank accounts → keep Finance in sync
-  { id: 'plaid', name: 'Link a Bank', kind: 'bank', icon: 'fa-solid fa-building-columns', color: '#10B981', blurb: 'Securely connect 12,000+ banks via Plaid', accountHint: 'Search your bank', auth: 'oauth' },
+  { id: 'plaid', name: 'Other Bank', kind: 'bank', icon: 'fa-solid fa-building-columns', color: '#10B981', blurb: 'Upload or paste any bank statement to import', accountHint: 'paste/upload statement', auth: 'ai-import' },
   { id: 'chase', name: 'Chase', kind: 'bank', icon: 'fa-solid fa-building-columns', color: '#117ACA', blurb: 'Upload or paste a statement to import', accountHint: 'paste/upload statement', auth: 'ai-import' },
   { id: 'bofa', name: 'Bank of America', kind: 'bank', icon: 'fa-solid fa-building-columns', color: '#E31837', blurb: 'Upload or paste a statement to import', accountHint: 'paste/upload statement', auth: 'ai-import' },
   { id: 'wise', name: 'Wise', kind: 'bank', icon: 'fa-solid fa-money-bill-transfer', color: '#9FE870', blurb: 'Upload or paste your transaction export', accountHint: 'paste/upload export', auth: 'ai-import' },

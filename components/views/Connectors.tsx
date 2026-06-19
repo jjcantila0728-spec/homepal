@@ -67,7 +67,7 @@ export function Connectors() {
           kind: provider.kind,
           account: provider.name,
           status: 'connected',
-          autoSync: provider.auth === 'oauth',
+          autoSync: false,
           lastSync: 'Just now',
           synced: rows.length,
         });
@@ -106,10 +106,6 @@ export function Connectors() {
   }
 
   function openConnect(provider: ConnectorProvider, existing?: Connection) {
-    if (provider.auth === 'oauth') {
-      showModal(<OAuthSoonModal provider={provider} onClose={hideModal} />);
-      return;
-    }
     showModal(
       <ImportModal
         provider={provider}
@@ -118,13 +114,6 @@ export function Connectors() {
         onClose={hideModal}
       />,
     );
-  }
-
-  function toggleAuto(c: Connection) {
-    update((d) => {
-      const conn = (d.connectors || []).find((x) => x.id === c.id);
-      if (conn) conn.autoSync = !conn.autoSync;
-    });
   }
 
   return (
@@ -166,7 +155,6 @@ export function Connectors() {
         onConnect={openConnect}
         onDisconnect={disconnect}
         onSync={(c) => openConnect(providerOf(c.providerId)!, c)}
-        onToggleAuto={toggleAuto}
       />
       <Section
         kind="bank"
@@ -175,7 +163,6 @@ export function Connectors() {
         onConnect={openConnect}
         onDisconnect={disconnect}
         onSync={(c) => openConnect(providerOf(c.providerId)!, c)}
-        onToggleAuto={toggleAuto}
       />
     </>
   );
@@ -188,7 +175,6 @@ function Section({
   onConnect,
   onDisconnect,
   onSync,
-  onToggleAuto,
 }: {
   kind: ConnectorKind;
   connections: Connection[];
@@ -196,7 +182,6 @@ function Section({
   onConnect: (p: ConnectorProvider) => void;
   onDisconnect: (c: Connection) => void;
   onSync: (c: Connection) => void;
-  onToggleAuto: (c: Connection) => void;
 }) {
   const meta = KIND_META[kind];
   const available = connectorProviders.filter((p) => p.kind === kind && !connectedIds.has(p.id));
@@ -225,7 +210,6 @@ function Section({
               syncedLabel={meta.syncedLabel}
               onDisconnect={onDisconnect}
               onSync={onSync}
-              onToggleAuto={onToggleAuto}
             />
           ))}
         </div>
@@ -253,11 +237,7 @@ function Section({
                   <div className="text-sm font-medium truncate">{p.name}</div>
                   <div className="text-[11px] text-[var(--muted)] truncate">{p.blurb}</div>
                 </div>
-                {p.auth === 'oauth' ? (
-                  <span className="text-[9px] uppercase tracking-wide text-[var(--muted)] flex-shrink-0">soon</span>
-                ) : (
-                  <i className="fa-solid fa-plus text-[var(--muted)] text-xs flex-shrink-0" />
-                )}
+                <i className="fa-solid fa-plus text-[var(--muted)] text-xs flex-shrink-0" />
               </button>
             ))}
           </div>
@@ -276,17 +256,14 @@ function ConnectionRow({
   syncedLabel,
   onDisconnect,
   onSync,
-  onToggleAuto,
 }: {
   c: Connection;
   syncedLabel: string;
   onDisconnect: (c: Connection) => void;
   onSync: (c: Connection) => void;
-  onToggleAuto: (c: Connection) => void;
 }) {
   const p = providerOf(c.providerId);
   const color = p?.color || 'var(--accent)';
-  const isOauth = p?.auth === 'oauth';
   return (
     <div className="flex items-center gap-3 p-3 rounded-xl border border-[var(--border)] bg-[var(--surface2)]">
       <div
@@ -307,23 +284,14 @@ function ConnectionRow({
         </div>
       </div>
       <div className="flex items-center gap-1 flex-shrink-0">
-        {isOauth && (
-          <label
-            className="flex items-center gap-1.5 text-[11px] text-[var(--muted)] cursor-pointer mr-1 select-none"
-            title="Keep this account syncing automatically"
-          >
-            <input type="checkbox" checked={c.autoSync} onChange={() => onToggleAuto(c)} style={{ width: 'auto' }} />
-            <span className="hidden sm:inline">Auto</span>
-          </label>
-        )}
         <button
           className="icon-btn"
           style={{ width: 32, height: 32 }}
           onClick={() => onSync(c)}
-          title={isOauth ? 'Sync now' : 'Import more'}
-          aria-label={isOauth ? 'Sync now' : 'Import more'}
+          title="Import more"
+          aria-label="Import more"
         >
-          <i className={`fa-solid ${isOauth ? 'fa-rotate' : 'fa-file-import'} text-xs`} />
+          <i className="fa-solid fa-file-import text-xs" />
         </button>
         <button
           className="icon-btn"
@@ -335,34 +303,6 @@ function ConnectionRow({
           <i className="fa-solid fa-link-slash text-xs" />
         </button>
       </div>
-    </div>
-  );
-}
-
-function OAuthSoonModal({ provider, onClose }: { provider: ConnectorProvider; onClose: () => void }) {
-  return (
-    <div className="p-5">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="font-bold">Connect {provider.name}</h3>
-        <button className="text-[var(--muted)] hover:text-[var(--fg)]" onClick={onClose} aria-label="Close">
-          <i className="fa-solid fa-xmark" />
-        </button>
-      </div>
-      <div className="flex items-center gap-3 mb-4 p-3 rounded-xl bg-[var(--surface2)] border border-[var(--border)]">
-        <div
-          className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0"
-          style={{ background: provider.color + '22', color: provider.color, fontSize: 18 }}
-        >
-          <i className={provider.icon} />
-        </div>
-        <p className="text-xs text-[var(--muted)]">
-          Secure one-click sync for {provider.name} is coming soon. Meanwhile, use an import-capable
-          provider — paste, upload a screenshot, or link an export and AI does the rest.
-        </p>
-      </div>
-      <button className="btn btn-secondary w-full" onClick={onClose}>
-        Got it
-      </button>
     </div>
   );
 }
