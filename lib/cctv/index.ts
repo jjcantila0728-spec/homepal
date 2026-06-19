@@ -29,6 +29,9 @@ export interface Camera {
   preRoll: number;
   postRoll: number;
   enabled: boolean;
+  brand?: 'tapo' | 'onvif' | 'generic'; // non-secret display/edit metadata
+  host?: string;
+  streamQuality?: 'hd' | 'sd';
 }
 
 export interface EngineConfig {
@@ -411,6 +414,9 @@ export interface SanitizedCamera {
   postRoll: number;
   enabled: boolean;
   rtspMasked: string;
+  brand?: 'tapo' | 'onvif' | 'generic';
+  host?: string;
+  streamQuality?: 'hd' | 'sd';
 }
 
 // Strip ciphertext + any plaintext; expose only a masked URL for display.
@@ -435,6 +441,9 @@ export function sanitizeCamerasForClient(
       postRoll: c.postRoll,
       enabled: c.enabled,
       rtspMasked: masked,
+      brand: c.brand,
+      host: c.host,
+      streamQuality: c.streamQuality,
     };
   });
 }
