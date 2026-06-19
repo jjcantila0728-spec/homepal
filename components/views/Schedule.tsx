@@ -3,7 +3,7 @@
 import { useHousehold } from '@/store/household';
 import { useActions } from '@/hooks/useActions';
 import { Avatar, fd } from '@/lib/format';
-import { getMember } from '@/lib/selectors';
+import { getMember, connectorLabel } from '@/lib/selectors';
 import { catColors, dayNames } from '@/lib/constants';
 import { holidayMap } from '@/lib/holidays';
 import { EmptyState } from '@/components/ui/Cards';
@@ -186,7 +186,16 @@ export function Schedule() {
                   style={{ borderLeft: '3px solid ' + (catColors[se.cat] || '#6B7B8D') }}
                   onClick={() => viewEvent(se.id)}
                 >
-                  <div className="font-medium text-sm">{se.title}</div>
+                  <div className="font-medium text-sm flex items-center gap-1.5">
+                    {se.title}
+                    {se.source === 'connector' && (
+                      <i
+                        className="fa-solid fa-plug-circle-bolt text-[10px] text-[var(--muted)]"
+                        title={`Imported from ${connectorLabel(state, se.connectionId)}`}
+                        aria-label={`Imported from ${connectorLabel(state, se.connectionId)}`}
+                      />
+                    )}
+                  </div>
                   <div className="text-[11px] text-[var(--muted)]">
                     <i className="fa-regular fa-clock" /> {se.time}
                     {se.endTime ? `–${se.endTime}` : ''}

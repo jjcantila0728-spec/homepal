@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useHousehold } from '@/store/household';
 import { ds, money, nextDue } from '@/lib/format';
-import { getMember, isAdmin } from '@/lib/selectors';
+import { getMember, isAdmin, connectorLabel } from '@/lib/selectors';
 import {
   catColors,
   incCats,
@@ -63,6 +63,14 @@ const DEVICE_TYPES: DeviceType[] = (['light', 'lock', 'camera', 'sensor', 'media
 );
 
 const MEMBER_COLORS = ['#10B981', '#F59E0B', '#EF4444', '#3B82F6', '#8B5CF6', '#EC4899', '#06B6D4', '#F97316'];
+
+// Prefill for the Add Chore modal when starting from a recommendation.
+export interface ChorePreset {
+  name: string;
+  icon: string;
+  day: number;
+  pts: number;
+}
 
 export interface DiscoveredDevice {
   name: string;
@@ -292,6 +300,11 @@ export function useActions() {
 
   // ===================== Finance: transactions =====================
   function deleteTx(id: number) {
+    const tx = state.transactions.find((t) => t.id === id);
+    if (tx?.source === 'connector') {
+      toast('Managed by a connector — disconnect it in Connectors', 'info');
+      return;
+    }
     update((d) => {
       d.transactions = d.transactions.filter((t) => t.id !== id);
     });
@@ -493,19 +506,26 @@ export function useActions() {
     });
     toast('Cleared', 'info');
   }
-  function openAddChore() {
-    showModal(<AddChoreModal />);
+  function openAddChore(preset?: ChorePreset) {
+    showModal(<AddChoreModal preset={preset} />);
   }
-  function saveChore(p: { name: string; who: number; day: number; pts: number }) {
+  function saveChore(p: { name: string; who: number; day: number; pts: number; icon?: string }) {
     if (!p.name.trim()) {
       toast('Enter chore name', 'error');
       return;
     }
     update((d) => {
-      d.chores.push({ id: ++d.nid, name: p.name.trim(), assignee: p.who, day: p.day, done: false, pts: p.pts || 10, icon: 'fa-circle-check' });
+      d.chores.push({ id: ++d.nid, name: p.name.trim(), assignee: p.who, day: p.day, done: false, pts: p.pts || 10, icon: p.icon || 'fa-circle-check' });
     });
     hideModal();
     toast('Chore added', 'success');
+  }
+  // One-click add of a recommended chore, assigned to the current user.
+  function addRecommendedChore(rec: { name: string; icon: string; day: number; pts: number }) {
+    update((d) => {
+      d.chores.push({ id: ++d.nid, name: rec.name, assignee: ui.userId, day: rec.day, done: false, pts: rec.pts, icon: rec.icon });
+    });
+    toast(`Added "${rec.name}"`, 'success');
   }
   function openAddShop() {
     showModal(<AddShopModal />);
@@ -661,6 +681,11 @@ export function useActions() {
     showModal(<ViewEventModal id={id} />);
   }
   function deleteEvent(id: number) {
+    const ev = state.events.find((e) => e.id === id);
+    if (ev?.source === 'connector') {
+      toast('Managed by a connector — disconnect it in Connectors', 'info');
+      return;
+    }
     update((d) => {
       d.events = d.events.filter((e) => e.id !== id);
     });
@@ -1319,13 +1344,13 @@ export function useActions() {
     );
   }
 
-  function AddChoreModal() {
-    const [name, setName] = useState('');
+  function AddChoreModal({ preset }: { preset?: ChorePreset }) {
+    const [name, setName] = useState(preset?.name ?? '');
     const [who, setWho] = useState(state.members[0]?.id ?? ui.userId);
-    const [day, setDay] = useState(0);
-    const [pts, setPts] = useState('10');
+    const [day, setDay] = useState(preset?.day ?? 0);
+    const [pts, setPts] = useState(String(preset?.pts ?? 10));
     return (
-      <ModalShell title="Add Chore" onClose={hideModal}>
+      <ModalShell title={preset ? 'Add Recommended Chore' : 'Add Chore'} onClose={hideModal}>
         <div>
           <label>Name</label>
           <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Clean windows" />
@@ -1356,7 +1381,7 @@ export function useActions() {
           <label>Points</label>
           <input className="input" type="number" value={pts} onChange={(e) => setPts(e.target.value)} />
         </div>
-        <button className="btn btn-primary w-full" onClick={() => saveChore({ name, who, day, pts: +pts })}>
+        <button className="btn btn-primary w-full" onClick={() => saveChore({ name, who, day, pts: +pts, icon: preset?.icon })}>
           Add
         </button>
       </ModalShell>
@@ -1735,14 +1760,28 @@ export function useActions() {
           <span>{m ? m.name : 'Unknown'}</span>
         </div>
         {e.desc && <p className="text-sm text-[var(--muted)] pt-2 border-t border-[var(--border)]">{e.desc}</p>}
+        {e.source === 'connector' && (
+          <p className="text-[11px] text-[var(--muted)] flex items-center gap-1.5 pt-2 border-t border-[var(--border)]">
+            <i className="fa-solid fa-plug-circle-bolt" />
+            Imported from {connectorLabel(state, e.connectionId)} — disconnect in Connectors to remove.
+          </p>
+        )}
         <div className="flex gap-3 mt-4">
-          <button className="btn btn-danger btn-sm flex-1" onClick={() => deleteEvent(e.id)}>
-            <i className="fa-solid fa-trash-can" />
-            Delete
-          </button>
-          <button className="btn btn-secondary btn-sm flex-1" onClick={hideModal}>
-            Close
-          </button>
+          {e.source === 'connector' ? (
+            <button className="btn btn-secondary btn-sm flex-1" onClick={hideModal}>
+              Close
+            </button>
+          ) : (
+            <>
+              <button className="btn btn-danger btn-sm flex-1" onClick={() => deleteEvent(e.id)}>
+                <i className="fa-solid fa-trash-can" />
+                Delete
+              </button>
+              <button className="btn btn-secondary btn-sm flex-1" onClick={hideModal}>
+                Close
+              </button>
+            </>
+          )}
         </div>
       </ModalShell>
     );
@@ -2011,6 +2050,7 @@ export function useActions() {
     clearChecked,
     openAddChore,
     saveChore,
+    addRecommendedChore,
     openAddShop,
     saveShop,
     // family

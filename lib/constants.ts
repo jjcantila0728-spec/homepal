@@ -86,22 +86,25 @@ export interface ConnectorProvider {
   color: string;
   blurb: string;
   accountHint: string; // placeholder shown in the connect dialog
+  // How data is ingested. 'ai-import': user pastes/uploads/links content and an LLM
+  // extracts it (no credentials). 'oauth': proper token flow (Phase 2, env-gated).
+  auth: 'ai-import' | 'oauth';
 }
 
 export const connectorProviders: ConnectorProvider[] = [
   // Work schedules → keep Schedule in sync
-  { id: 'google-calendar', name: 'Google Calendar', kind: 'calendar', icon: 'fa-brands fa-google', color: '#4285F4', blurb: 'Sync shifts & meetings from your Google account', accountHint: 'you@gmail.com' },
-  { id: 'outlook', name: 'Outlook Calendar', kind: 'calendar', icon: 'fa-brands fa-microsoft', color: '#0078D4', blurb: 'Pull your work calendar from Microsoft 365', accountHint: 'you@company.com' },
-  { id: 'apple-calendar', name: 'Apple Calendar', kind: 'calendar', icon: 'fa-brands fa-apple', color: '#A2AAAD', blurb: 'Sync iCloud calendars across the household', accountHint: 'you@icloud.com' },
-  { id: 'workday', name: 'Workday', kind: 'calendar', icon: 'fa-solid fa-briefcase', color: '#F59E0B', blurb: 'Import shifts & PTO from your employer', accountHint: 'employee ID' },
-  { id: 'deputy', name: 'Deputy', kind: 'calendar', icon: 'fa-solid fa-clipboard-user', color: '#EC4899', blurb: 'Sync rostered shifts automatically', accountHint: 'you@work.com' },
+  { id: 'google-calendar', name: 'Google Calendar', kind: 'calendar', icon: 'fa-brands fa-google', color: '#4285F4', blurb: 'Sync shifts & meetings from your Google account', accountHint: 'you@gmail.com', auth: 'oauth' },
+  { id: 'outlook', name: 'Outlook Calendar', kind: 'calendar', icon: 'fa-brands fa-microsoft', color: '#0078D4', blurb: 'Paste or upload your work calendar export', accountHint: 'you@company.com', auth: 'ai-import' },
+  { id: 'apple-calendar', name: 'Apple Calendar', kind: 'calendar', icon: 'fa-brands fa-apple', color: '#A2AAAD', blurb: 'Import an exported iCloud calendar (.ics/paste)', accountHint: 'you@icloud.com', auth: 'ai-import' },
+  { id: 'workday', name: 'Workday', kind: 'calendar', icon: 'fa-solid fa-briefcase', color: '#F59E0B', blurb: 'Paste or screenshot your shifts & PTO', accountHint: 'paste your roster', auth: 'ai-import' },
+  { id: 'deputy', name: 'Deputy', kind: 'calendar', icon: 'fa-solid fa-clipboard-user', color: '#EC4899', blurb: 'Paste or screenshot your rostered shifts', accountHint: 'paste your roster', auth: 'ai-import' },
 
   // Bank accounts → keep Finance in sync
-  { id: 'plaid', name: 'Link a Bank', kind: 'bank', icon: 'fa-solid fa-building-columns', color: '#10B981', blurb: 'Securely connect 12,000+ banks via Plaid', accountHint: 'Search your bank' },
-  { id: 'chase', name: 'Chase', kind: 'bank', icon: 'fa-solid fa-building-columns', color: '#117ACA', blurb: 'Checking, savings & credit cards', accountHint: 'Chase ••••' },
-  { id: 'bofa', name: 'Bank of America', kind: 'bank', icon: 'fa-solid fa-building-columns', color: '#E31837', blurb: 'Auto-import balances & transactions', accountHint: 'BofA ••••' },
-  { id: 'wise', name: 'Wise', kind: 'bank', icon: 'fa-solid fa-money-bill-transfer', color: '#9FE870', blurb: 'Multi-currency balances & spending', accountHint: 'you@wise.com' },
-  { id: 'paypal', name: 'PayPal', kind: 'bank', icon: 'fa-brands fa-paypal', color: '#003087', blurb: 'Track PayPal income & purchases', accountHint: 'you@email.com' },
+  { id: 'plaid', name: 'Link a Bank', kind: 'bank', icon: 'fa-solid fa-building-columns', color: '#10B981', blurb: 'Securely connect 12,000+ banks via Plaid', accountHint: 'Search your bank', auth: 'oauth' },
+  { id: 'chase', name: 'Chase', kind: 'bank', icon: 'fa-solid fa-building-columns', color: '#117ACA', blurb: 'Upload or paste a statement to import', accountHint: 'paste/upload statement', auth: 'ai-import' },
+  { id: 'bofa', name: 'Bank of America', kind: 'bank', icon: 'fa-solid fa-building-columns', color: '#E31837', blurb: 'Upload or paste a statement to import', accountHint: 'paste/upload statement', auth: 'ai-import' },
+  { id: 'wise', name: 'Wise', kind: 'bank', icon: 'fa-solid fa-money-bill-transfer', color: '#9FE870', blurb: 'Upload or paste your transaction export', accountHint: 'paste/upload export', auth: 'ai-import' },
+  { id: 'paypal', name: 'PayPal', kind: 'bank', icon: 'fa-brands fa-paypal', color: '#003087', blurb: 'Upload or paste your activity export', accountHint: 'paste/upload activity', auth: 'ai-import' },
 ];
 
 export const VIEWS = [

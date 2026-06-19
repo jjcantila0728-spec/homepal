@@ -29,6 +29,8 @@ export interface CalEvent {
   memberId: number;
   cat: string;
   desc?: string;
+  source?: 'connector'; // set when imported by a connector — managed, read-only
+  connectionId?: number; // the owning Connection.id, for badge + disconnect cleanup
 }
 
 export interface Transaction {
@@ -39,6 +41,8 @@ export interface Transaction {
   date: string;
   memberId: number;
   note?: string;
+  source?: 'connector'; // set when imported by a connector — managed, read-only
+  connectionId?: number; // the owning Connection.id, for badge + disconnect cleanup
 }
 
 export interface Budget {

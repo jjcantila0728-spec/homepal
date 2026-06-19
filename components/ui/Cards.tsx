@@ -4,7 +4,7 @@ import type { ReactNode } from 'react';
 import { Avatar, money, fd } from '@/lib/format';
 import { useHousehold } from '@/store/household';
 import { useActions } from '@/hooks/useActions';
-import { getMember, isAdmin, budgetSpent } from '@/lib/selectors';
+import { getMember, isAdmin, budgetSpent, connectorLabel } from '@/lib/selectors';
 import { catColors, statusIcons, devTypeColors, dayNames, debtMeta, ART } from '@/lib/constants';
 import type {
   CalEvent,
@@ -91,7 +91,8 @@ export function TxRow({ t }: { t: Transaction }) {
   const col = t.type === 'income' ? 'var(--accent)' : 'var(--red)';
   const bg = t.type === 'income' ? 'rgba(16,185,129,.12)' : 'rgba(239,68,68,.12)';
   const sign = t.type === 'income' ? '+' : '-';
-  const canDelete = isAdmin(state, ui.userId) || t.memberId === ui.userId;
+  const managed = t.source === 'connector';
+  const canDelete = !managed && (isAdmin(state, ui.userId) || t.memberId === ui.userId);
   return (
     <div className="tx-row">
       <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: bg }}>
@@ -108,14 +109,22 @@ export function TxRow({ t }: { t: Transaction }) {
         {money(t.amount)}
       </div>
       <Avatar member={m} size={26} fontSize={9} radius={7} />
-      {canDelete && (
-        <button
-          className="text-[var(--muted)] hover:text-[var(--red)] transition text-xs"
-          onClick={() => deleteTx(t.id)}
-          aria-label="Delete transaction"
-        >
-          <i className="fa-solid fa-trash-can" />
-        </button>
+      {managed ? (
+        <i
+          className="fa-solid fa-plug-circle-bolt text-[var(--muted)] text-xs"
+          title={`Imported from ${connectorLabel(state, t.connectionId)} — manage in Connectors`}
+          aria-label={`Imported from ${connectorLabel(state, t.connectionId)}`}
+        />
+      ) : (
+        canDelete && (
+          <button
+            className="text-[var(--muted)] hover:text-[var(--red)] transition text-xs"
+            onClick={() => deleteTx(t.id)}
+            aria-label="Delete transaction"
+          >
+            <i className="fa-solid fa-trash-can" />
+          </button>
+        )
       )}
     </div>
   );

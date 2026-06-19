@@ -1,7 +1,17 @@
 import type { HouseholdState, Member, Transaction } from './types';
 import { mKey } from './format';
+import { connectorProviders } from './constants';
 
 const fallbackUser: Member = { id: 0, name: '', role: 'member', status: '', color: '#10B981', init: '' };
+
+// Display name of the provider behind a managed (connector-imported) item, or
+// 'Connector' if the connection has since been removed. Used for read-only badges.
+export function connectorLabel(state: HouseholdState, connectionId?: number): string {
+  if (connectionId == null) return 'Connector';
+  const conn = (state.connectors || []).find((c) => c.id === connectionId);
+  const prov = conn && connectorProviders.find((p) => p.id === conn.providerId);
+  return prov?.name || 'Connector';
+}
 
 export function getMember(state: HouseholdState, id: number): Member | undefined {
   return state.members.find((m) => m.id === id);
