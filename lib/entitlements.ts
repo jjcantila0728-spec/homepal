@@ -11,7 +11,7 @@ export const FEATURES: Feature[] = ['automations', 'cctv', 'voice', 'discovery',
 /** Human-readable labels for upgrade prompts. */
 export const FEATURE_LABELS: Record<Feature, string> = {
   automations: 'Automations & Scenes',
-  cctv: 'CCTV Recording & Storage',
+  cctv: 'Cameras',
   voice: 'Voice Assistant Control',
   discovery: 'Device Discovery',
   unlimited_members: 'Unlimited Family Members',

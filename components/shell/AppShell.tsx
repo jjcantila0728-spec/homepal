@@ -14,7 +14,6 @@ const TITLES: Record<string, string> = {
   '/app/schedule': 'Schedule',
   '/app/finance': 'Finance',
   '/app/home': 'Smart Home',
-  '/app/cctv': 'Cameras & Storage',
   '/app/tasks': 'Tasks',
   '/app/family': 'Family',
   '/app/billing': 'Billing & Plan',

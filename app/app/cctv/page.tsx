@@ -1,5 +1,6 @@
-import { Cctv } from '@/components/views/Cctv';
+import { redirect } from 'next/navigation';
 
+// The CCTV view was folded into Smart Home; keep old links working.
 export default function CctvPage() {
-  return <Cctv />;
+  redirect('/app/home');
 }
