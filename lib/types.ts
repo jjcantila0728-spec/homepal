@@ -99,6 +99,8 @@ export interface Light {
   room: string;
   on: boolean;
   brightness: number;
+  deakoUuid?: string; // when set, this light controls a real Deako device
+  source?: 'manual' | 'deako';
 }
 
 export interface Device {
@@ -180,6 +182,23 @@ export interface Alert {
   seen: boolean;
 }
 
+// A linked external account ("connector") owned by a single member. Calendar
+// connectors keep the household Schedule in sync; bank connectors keep Finance
+// in sync. Each member manages only their own connections.
+export type ConnectorKind = 'calendar' | 'bank';
+
+export interface Connection {
+  id: number;
+  memberId: number;
+  providerId: string;
+  kind: ConnectorKind;
+  account: string; // email for calendars, masked account for banks
+  status: 'connected' | 'error';
+  autoSync: boolean;
+  lastSync: string; // human label, e.g. "Just now"
+  synced: number; // count of items pulled in last sync (cosmetic)
+}
+
 export interface Assistants {
   alexa: boolean;
   google: boolean;
@@ -218,8 +237,20 @@ export interface CctvConfig {
   cameras?: unknown[];
 }
 
+export interface DeakoConfig {
+  enabled?: boolean;
+  gatewayIp?: string;
+  lastConnectedAt?: string;
+  devices?: { uuid: string; name: string; room?: string }[];
+}
+
+export interface Integrations {
+  deako?: DeakoConfig;
+}
+
 export interface HouseholdState {
   householdName: string;
+  integrations?: Integrations;
   members: Member[];
   events: CalEvent[];
   transactions: Transaction[];
@@ -243,6 +274,7 @@ export interface HouseholdState {
   autoSeeded: boolean;
   assistants: Assistants;
   cctv?: CctvConfig;
+  connectors?: Connection[];
   nid: number;
 }
 

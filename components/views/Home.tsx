@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -15,6 +15,9 @@ import { useHousehold } from '@/store/household';
 import { useActions } from '@/hooks/useActions';
 import { TRIGGER_TEXT, actionText } from '@/lib/automations';
 import { StatCard, LightCard, LockRow, DeviceCard, SensorRow, CamCard, EmptyState } from '@/components/ui/Cards';
+import { apiConnectDeako, apiDeakoDevices, apiDeakoStatus } from '@/lib/integrations/deako/deakoClientApi';
+import type { DeakoDevice, DeakoStatus } from '@/lib/integrations/deako/types';
+import type { Light } from '@/lib/types';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Tooltip, Legend);
 
@@ -76,6 +79,109 @@ function useCameraNoise(activeCamIds: number[]) {
   }, [idsKey]);
 }
 
+// Deako Lights: connect to a gateway device on the LAN and link each discovered
+// Deako device to a HomePal light (so toggling the light drives real hardware).
+function DeakoCard({
+  lights,
+  onLink,
+  savedGatewayIp,
+}: {
+  lights: Light[];
+  onLink: (lightId: number, uuid: string) => void;
+  savedGatewayIp?: string;
+}) {
+  const [ip, setIp] = useState(savedGatewayIp ?? '');
+  const [status, setStatus] = useState<DeakoStatus | null>(null);
+  const [devices, setDevices] = useState<DeakoDevice[]>([]);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    apiDeakoStatus().then(setStatus).catch(() => {});
+    apiDeakoDevices()
+      .then((r) => {
+        if (r.connected) setDevices(r.devices);
+      })
+      .catch(() => {});
+  }, []);
+
+  async function connect() {
+    setBusy(true);
+    const res = await apiConnectDeako(ip.trim());
+    setBusy(false);
+    if (res.connected) {
+      setDevices(res.devices ?? []);
+      apiDeakoStatus().then(setStatus).catch(() => {});
+    } else {
+      // eslint-disable-next-line no-alert
+      alert(res.error || 'Could not connect to Deako.');
+    }
+  }
+
+  const connected = status?.status === 'connected';
+  return (
+    <div className="card mb-5">
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="font-semibold text-sm">
+          <i className="fa-solid fa-lightbulb mr-1 text-[var(--accent)]" />
+          Deako Lights
+        </h3>
+        <span className="text-[11px] text-[var(--muted)]">
+          {connected
+            ? `Connected · ${status?.deviceCount ?? devices.length} devices`
+            : status?.status === 'error'
+              ? 'Error'
+              : 'Not connected'}
+        </span>
+      </div>
+      <div className="flex gap-2 mb-2">
+        <input
+          className="input flex-1"
+          placeholder="Deako device IP (e.g. 192.168.1.50)"
+          value={ip}
+          onChange={(e) => setIp(e.target.value)}
+        />
+        <button className="btn btn-primary btn-sm" onClick={connect} disabled={busy}>
+          {busy ? 'Connecting…' : 'Connect'}
+        </button>
+      </div>
+      {!connected && (
+        <div className="text-[11px] text-[var(--muted)] mb-1">
+          Deako control requires HomePal running on your home network.
+          {status?.lastError ? ` (${status.lastError})` : ''}
+        </div>
+      )}
+      {devices.length > 0 && (
+        <div className="space-y-2 mt-2">
+          {devices.map((dv) => {
+            const linked = lights.find((l) => l.deakoUuid === dv.uuid);
+            return (
+              <div key={dv.uuid} className="flex items-center gap-2 text-xs">
+                <span className="flex-1 truncate">{dv.name}</span>
+                <select
+                  className="input !py-1 !text-xs"
+                  value={linked?.id ?? ''}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    if (v) onLink(Number(v), dv.uuid);
+                    else if (linked) onLink(linked.id, '');
+                  }}
+                >
+                  <option value="">— Link to light —</option>
+                  {lights.map((l) => (
+                    <option key={l.id} value={l.id}>
+                      {l.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function Home() {
   const { state, ui, activateScene } = useHousehold();
   const {
@@ -84,6 +190,7 @@ export function Home() {
     openAddDevice,
     setRoom,
     allLights,
+    linkDeako,
     adjTemp,
     toggleThermo,
     setThermoMode,
@@ -419,6 +526,8 @@ export function Home() {
           <EmptyState color="var(--amber)" title="No lights here yet" sub="Add a light or connect WiFi devices" />
         )}
       </div>
+
+      <DeakoCard lights={S.lights} onLink={linkDeako} savedGatewayIp={S.integrations?.deako?.gatewayIp} />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-5">
         <div className="card">

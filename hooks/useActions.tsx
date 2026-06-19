@@ -15,6 +15,7 @@ import {
   roomIcons,
 } from '@/lib/constants';
 import { defaultAutomations, runAutomations, fireAutomation } from '@/lib/automations';
+import { apiDeakoControl } from '@/lib/integrations/deako/deakoClientApi';
 import type {
   HouseholdState,
   Device,
@@ -84,27 +85,95 @@ export function useActions() {
   };
 
   // ===================== SMART HOME: device control =====================
+  // Push a light's state to its linked Deako device (best-effort). Reverts the
+  // optimistic UI change if the hardware command fails.
+  function deakoPush(uuid: string | undefined, on: boolean, brightness: number, revert: () => void) {
+    if (!uuid) return;
+    apiDeakoControl(uuid, on, on ? brightness : 0)
+      .then((res) => {
+        if (res?.error) {
+          revert();
+          toast('Deako: ' + res.error, 'error');
+        }
+      })
+      .catch(() => {
+        revert();
+        toast('Deako device unreachable', 'error');
+      });
+  }
+
   function toggleLight(id: number) {
+    let uuid: string | undefined;
+    let nextOn = false;
+    let bright = 0;
     update((d) => {
       const l = d.lights.find((x) => x.id === id);
       if (!l) return;
       l.on = !l.on;
+      uuid = l.deakoUuid;
+      nextOn = l.on;
+      bright = l.brightness;
       d.alerts.unshift({ id: ++d.nid, type: 'light', msg: l.name + ' turned ' + (l.on ? 'on' : 'off'), time: 'Just now', sev: 'info', seen: false });
       toast(l.name + ' ' + (l.on ? 'on' : 'off'), l.on ? 'success' : 'info');
     });
+    deakoPush(uuid, nextOn, bright, () =>
+      update((d) => {
+        const l = d.lights.find((x) => x.id === id);
+        if (l) l.on = !nextOn;
+      }),
+    );
   }
   function setBrightness(id: number, value: number) {
+    let uuid: string | undefined;
+    let prev = value;
+    let isOn = true;
     update((d) => {
       const l = d.lights.find((x) => x.id === id);
-      if (l) l.brightness = value;
+      if (l) {
+        prev = l.brightness;
+        l.brightness = value;
+        uuid = l.deakoUuid;
+        isOn = l.on;
+      }
     });
+    deakoPush(uuid, isOn, value, () =>
+      update((d) => {
+        const l = d.lights.find((x) => x.id === id);
+        if (l) l.brightness = prev;
+      }),
+    );
   }
   function allLights(on: boolean) {
+    const affected: { uuid: string; brightness: number }[] = [];
     update((d) => {
       const ls = ui.homeRoom === 'all' ? d.lights : d.lights.filter((l) => l.room === ui.homeRoom);
-      ls.forEach((l) => (l.on = on));
+      ls.forEach((l) => {
+        l.on = on;
+        if (l.deakoUuid) affected.push({ uuid: l.deakoUuid, brightness: l.brightness });
+      });
     });
     toast('All lights ' + (on ? 'on' : 'off'), on ? 'success' : 'info');
+    affected.forEach((a) => deakoPush(a.uuid, on, a.brightness, () => {}));
+  }
+  // Link (or unlink) a HomePal light to a real Deako device. A Deako device maps
+  // to at most one light, so clear any previous owner first.
+  function linkDeako(lightId: number, uuid: string) {
+    update((d) => {
+      if (uuid) {
+        for (const l of d.lights) {
+          if (l.deakoUuid === uuid) {
+            l.deakoUuid = undefined;
+            l.source = 'manual';
+          }
+        }
+      }
+      const light = d.lights.find((x) => x.id === lightId);
+      if (light) {
+        light.deakoUuid = uuid || undefined;
+        light.source = uuid ? 'deako' : 'manual';
+      }
+    });
+    toast(uuid ? 'Light linked to Deako' : 'Light unlinked', 'success');
   }
   function adjTemp(delta: number) {
     update((d) => {
@@ -1714,6 +1783,7 @@ export function useActions() {
     toggleLight,
     setBrightness,
     allLights,
+    linkDeako,
     adjTemp,
     toggleThermo,
     setThermoMode,
