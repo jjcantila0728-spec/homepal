@@ -76,6 +76,34 @@ export const ART = {
   },
 };
 
+// ===== Connectors: catalog of linkable external providers =====
+// `icon` carries its full Font Awesome class (brand glyphs need `fa-brands`).
+export interface ConnectorProvider {
+  id: string;
+  name: string;
+  kind: 'calendar' | 'bank';
+  icon: string;
+  color: string;
+  blurb: string;
+  accountHint: string; // placeholder shown in the connect dialog
+}
+
+export const connectorProviders: ConnectorProvider[] = [
+  // Work schedules → keep Schedule in sync
+  { id: 'google-calendar', name: 'Google Calendar', kind: 'calendar', icon: 'fa-brands fa-google', color: '#4285F4', blurb: 'Sync shifts & meetings from your Google account', accountHint: 'you@gmail.com' },
+  { id: 'outlook', name: 'Outlook Calendar', kind: 'calendar', icon: 'fa-brands fa-microsoft', color: '#0078D4', blurb: 'Pull your work calendar from Microsoft 365', accountHint: 'you@company.com' },
+  { id: 'apple-calendar', name: 'Apple Calendar', kind: 'calendar', icon: 'fa-brands fa-apple', color: '#A2AAAD', blurb: 'Sync iCloud calendars across the household', accountHint: 'you@icloud.com' },
+  { id: 'workday', name: 'Workday', kind: 'calendar', icon: 'fa-solid fa-briefcase', color: '#F59E0B', blurb: 'Import shifts & PTO from your employer', accountHint: 'employee ID' },
+  { id: 'deputy', name: 'Deputy', kind: 'calendar', icon: 'fa-solid fa-clipboard-user', color: '#EC4899', blurb: 'Sync rostered shifts automatically', accountHint: 'you@work.com' },
+
+  // Bank accounts → keep Finance in sync
+  { id: 'plaid', name: 'Link a Bank', kind: 'bank', icon: 'fa-solid fa-building-columns', color: '#10B981', blurb: 'Securely connect 12,000+ banks via Plaid', accountHint: 'Search your bank' },
+  { id: 'chase', name: 'Chase', kind: 'bank', icon: 'fa-solid fa-building-columns', color: '#117ACA', blurb: 'Checking, savings & credit cards', accountHint: 'Chase ••••' },
+  { id: 'bofa', name: 'Bank of America', kind: 'bank', icon: 'fa-solid fa-building-columns', color: '#E31837', blurb: 'Auto-import balances & transactions', accountHint: 'BofA ••••' },
+  { id: 'wise', name: 'Wise', kind: 'bank', icon: 'fa-solid fa-money-bill-transfer', color: '#9FE870', blurb: 'Multi-currency balances & spending', accountHint: 'you@wise.com' },
+  { id: 'paypal', name: 'PayPal', kind: 'bank', icon: 'fa-brands fa-paypal', color: '#003087', blurb: 'Track PayPal income & purchases', accountHint: 'you@email.com' },
+];
+
 export const VIEWS = [
   { id: 'dashboard', icon: 'fa-gauge-high', label: 'Dashboard', href: '/app' },
   { id: 'schedule', icon: 'fa-calendar', label: 'Schedule', href: '/app/schedule' },

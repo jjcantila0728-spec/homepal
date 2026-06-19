@@ -52,6 +52,7 @@ export function buildSeedState(adminName: string, householdName?: string): House
     ],
     autoSeeded: true,
     assistants: { alexa: false, google: false, siri: false, homekit: false, voiceName: 'HomePal' },
+    connectors: [],
     nid: 100,
   };
 }
